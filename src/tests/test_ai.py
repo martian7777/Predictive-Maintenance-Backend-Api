@@ -1,4 +1,5 @@
 """AI explanation tests (uses the built-in mock explainer; no network)."""
+
 from __future__ import annotations
 
 import pytest
@@ -43,9 +44,7 @@ async def test_explain_no_data_returns_mock(auth_client: AsyncClient, machine_id
     assert isinstance(body["recommendations"], list)
 
 
-async def test_explain_after_upload(
-    auth_client: AsyncClient, machine_id: str, _patch_session
-):
+async def test_explain_after_upload(auth_client: AsyncClient, machine_id: str, _patch_session):
     files = {"file": ("sensors.csv", _csv(150), "text/csv")}
     await auth_client.post(f"/api/v1/telemetry/upload/{machine_id}", files=files)
 

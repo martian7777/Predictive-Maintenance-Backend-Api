@@ -1,4 +1,5 @@
 """Authentication endpoints: register, login (OAuth2), current user."""
+
 from __future__ import annotations
 
 from typing import Annotated

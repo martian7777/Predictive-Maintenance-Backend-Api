@@ -5,6 +5,7 @@ chunks via ``pandas.read_csv(chunksize=...)`` so memory stays bounded, each
 chunk is scored by the anomaly detector and bulk-inserted in its own
 transaction, and the owning ``Task`` row tracks progress.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -86,9 +87,7 @@ def _prepare_chunk(df: pd.DataFrame) -> pd.DataFrame:
     else:
         df["timestamp"] = pd.NaT
     if df["timestamp"].isna().all():
-        df["timestamp"] = pd.date_range(
-            end=pd.Timestamp.utcnow(), periods=len(df), freq="s"
-        )
+        df["timestamp"] = pd.date_range(end=pd.Timestamp.utcnow(), periods=len(df), freq="s")
     else:
         df["timestamp"] = df["timestamp"].ffill().fillna(pd.Timestamp.now(tz="UTC"))
 
@@ -156,9 +155,7 @@ def _nan_to_none(value: Any) -> float | None:
     return None if np.isnan(f) else f
 
 
-async def process_csv_task(
-    task_id: uuid.UUID, machine_id: uuid.UUID, file_path: str
-) -> None:
+async def process_csv_task(task_id: uuid.UUID, machine_id: uuid.UUID, file_path: str) -> None:
     """Background entry point: parse a CSV file and persist scored telemetry.
 
     Runs with its own DB session (the request session is already closed).

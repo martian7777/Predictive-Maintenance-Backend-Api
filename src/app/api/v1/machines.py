@@ -1,4 +1,5 @@
 """Machine CRUD endpoints (scoped to the authenticated owner)."""
+
 from __future__ import annotations
 
 import uuid
@@ -32,9 +33,7 @@ async def list_machines(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
 ) -> list[MachineRead]:
-    machines = await MachineService(session).list_owned(
-        current_user.id, skip=skip, limit=limit
-    )
+    machines = await MachineService(session).list_owned(current_user.id, skip=skip, limit=limit)
     return [MachineRead.model_validate(m) for m in machines]
 
 

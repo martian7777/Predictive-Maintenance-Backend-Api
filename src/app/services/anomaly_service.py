@@ -5,6 +5,7 @@ can be swapped (statistical Z-score baseline, Isolation Forest, a deep model)
 without touching the telemetry pipeline. `IsolationForestDetector` is the
 default, production-grade implementation.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -97,14 +98,10 @@ class IsolationForestDetector:
         random_state: int = 42,
     ) -> None:
         self.contamination = (
-            contamination
-            if contamination is not None
-            else settings.isolation_forest_contamination
+            contamination if contamination is not None else settings.isolation_forest_contamination
         )
         self.n_estimators = (
-            n_estimators
-            if n_estimators is not None
-            else settings.isolation_forest_n_estimators
+            n_estimators if n_estimators is not None else settings.isolation_forest_n_estimators
         )
         self.random_state = random_state
         self._scaler = StandardScaler()
@@ -150,9 +147,7 @@ class IsolationForestDetector:
         features = np.asarray(features, dtype=np.float64)
         if features.ndim == 1:
             features = features.reshape(-1, 1)
-        col_means = np.nanmean(
-            np.where(np.isfinite(features), features, np.nan), axis=0
-        )
+        col_means = np.nanmean(np.where(np.isfinite(features), features, np.nan), axis=0)
         col_means = np.where(np.isfinite(col_means), col_means, 0.0)
         idx = ~np.isfinite(features)
         features[idx] = np.take(col_means, np.where(idx)[1])

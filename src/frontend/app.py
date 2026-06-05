@@ -5,6 +5,7 @@ Each browser session gets its own authenticated APIClient held in gr.State.
 
 Run with:  python -m frontend.app
 """
+
 from __future__ import annotations
 
 import os
@@ -24,7 +25,11 @@ def do_register(client: APIClient, email, password, full_name):
     try:
         client.register(email, password, full_name or None)
         client.login(email, password)
-        return client, _status_md(f"✅ Registered and logged in as **{email}**."), *_post_login(client)
+        return (
+            client,
+            _status_md(f"✅ Registered and logged in as **{email}**."),
+            *_post_login(client),
+        )
     except APIError as e:
         return client, _status_md(f"❌ {e.detail}"), gr.update(), gr.update(), ""
 

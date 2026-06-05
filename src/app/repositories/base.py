@@ -1,4 +1,5 @@
 """Generic async repository implementing common CRUD operations."""
+
 from __future__ import annotations
 
 import uuid

@@ -1,4 +1,5 @@
 """Sensor telemetry ORM model."""
+
 from __future__ import annotations
 
 import uuid
@@ -22,9 +23,7 @@ class SensorTelemetry(UUIDMixin, Base):
         ForeignKey("machines.id", ondelete="CASCADE"),
         nullable=False,
     )
-    timestamp: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, index=True
-    )
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
 
     temperature: Mapped[float | None] = mapped_column(Float, nullable=True)
     vibration: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -32,9 +31,7 @@ class SensorTelemetry(UUIDMixin, Base):
     rotational_speed: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     anomaly_score: Mapped[float | None] = mapped_column(Float, nullable=True)
-    is_anomaly: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False, index=True
-    )
+    is_anomaly: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
 
     machine: Mapped[Machine] = relationship(back_populates="telemetry")
 

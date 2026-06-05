@@ -1,4 +1,5 @@
 """Telemetry repository with bulk-insert and aggregation helpers."""
+
 from __future__ import annotations
 
 import uuid
@@ -59,9 +60,7 @@ class TelemetryRepository(BaseRepository[SensorTelemetry]):
         rows.reverse()  # return ascending for plotting
         return rows
 
-    async def count_for_machine(
-        self, machine_id: uuid.UUID, anomalies_only: bool = False
-    ) -> int:
+    async def count_for_machine(self, machine_id: uuid.UUID, anomalies_only: bool = False) -> int:
         stmt = (
             select(func.count())
             .select_from(SensorTelemetry)
@@ -74,9 +73,7 @@ class TelemetryRepository(BaseRepository[SensorTelemetry]):
 
     async def stats_for_machine(self, machine_id: uuid.UUID) -> dict[str, Any]:
         """Return aggregate counts + last reading timestamp for a machine."""
-        anomaly_sum = func.sum(
-            case((SensorTelemetry.is_anomaly.is_(True), 1), else_=0)
-        )
+        anomaly_sum = func.sum(case((SensorTelemetry.is_anomaly.is_(True), 1), else_=0))
         stmt = select(
             func.count(SensorTelemetry.id),
             anomaly_sum,

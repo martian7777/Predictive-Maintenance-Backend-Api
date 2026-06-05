@@ -1,4 +1,5 @@
 """Machine endpoint tests, including ownership isolation."""
+
 from __future__ import annotations
 
 import pytest
@@ -23,18 +24,14 @@ async def test_create_and_get_machine(auth_client: AsyncClient):
 
 async def test_list_machines(auth_client: AsyncClient):
     for i in range(3):
-        await auth_client.post(
-            "/api/v1/machines", json={"name": f"M{i}", "type": "pump"}
-        )
+        await auth_client.post("/api/v1/machines", json={"name": f"M{i}", "type": "pump"})
     resp = await auth_client.get("/api/v1/machines")
     assert resp.status_code == 200
     assert len(resp.json()) == 3
 
 
 async def test_update_machine(auth_client: AsyncClient, machine_id: str):
-    resp = await auth_client.patch(
-        f"/api/v1/machines/{machine_id}", json={"status": "WARNING"}
-    )
+    resp = await auth_client.patch(f"/api/v1/machines/{machine_id}", json={"status": "WARNING"})
     assert resp.status_code == 200
     assert resp.json()["status"] == "WARNING"
 

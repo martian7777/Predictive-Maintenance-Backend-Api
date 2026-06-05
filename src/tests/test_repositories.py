@@ -1,4 +1,5 @@
 """Direct repository-layer tests against the in-memory engine."""
+
 from __future__ import annotations
 
 import uuid
@@ -111,13 +112,9 @@ async def test_bulk_insert_empty_returns_zero(session_factory):
 async def test_task_repo_listing(session_factory):
     async with session_factory() as session:
         user = await _make_user(session)
-        machine = await MachineRepository(session).create(
-            name="M", type="motor", owner_id=user.id
-        )
+        machine = await MachineRepository(session).create(name="M", type="motor", owner_id=user.id)
         repo = TaskRepository(session)
         for _ in range(3):
-            await repo.create(
-                machine_id=machine.id, status=TaskStatus.COMPLETED, file_name="f.csv"
-            )
+            await repo.create(machine_id=machine.id, status=TaskStatus.COMPLETED, file_name="f.csv")
         await session.commit()
         assert len(await repo.list_for_machine(machine.id)) == 3

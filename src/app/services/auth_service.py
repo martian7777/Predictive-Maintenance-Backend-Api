@@ -1,4 +1,5 @@
 """Authentication / user-registration business logic."""
+
 from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession

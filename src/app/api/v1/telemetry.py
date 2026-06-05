@@ -1,4 +1,5 @@
 """Telemetry endpoints: CSV upload, task polling, time-series retrieval."""
+
 from __future__ import annotations
 
 import shutil
@@ -71,9 +72,7 @@ async def upload_telemetry(
 
 
 @router.get("/tasks/{task_id}", response_model=TaskRead)
-async def get_task(
-    task_id: uuid.UUID, current_user: CurrentUser, session: DbSession
-) -> TaskRead:
+async def get_task(task_id: uuid.UUID, current_user: CurrentUser, session: DbSession) -> TaskRead:
     task = await TaskRepository(session).get(task_id)
     if task is None:
         raise NotFoundError("Task not found")

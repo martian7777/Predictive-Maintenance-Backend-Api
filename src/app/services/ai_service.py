@@ -5,6 +5,7 @@ telemetry (emphasising anomalous readings) and asks an LLM to explain likely
 root causes and recommend maintenance actions. When no OpenRouter API key is
 configured it returns a rule-based mock so the system is fully usable offline.
 """
+
 from __future__ import annotations
 
 import json
@@ -115,9 +116,7 @@ class AIService:
         }
 
     # ------------------------------------------------------------------ openrouter
-    async def _call_openrouter(
-        self, context: dict[str, Any]
-    ) -> tuple[dict[str, Any], str, bool]:
+    async def _call_openrouter(self, context: dict[str, Any]) -> tuple[dict[str, Any], str, bool]:
         from openai import AsyncOpenAI
 
         client = AsyncOpenAI(

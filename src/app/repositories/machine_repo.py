@@ -1,4 +1,5 @@
 """Machine repository."""
+
 from __future__ import annotations
 
 import uuid
@@ -25,11 +26,7 @@ class MachineRepository(BaseRepository[Machine]):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def get_for_owner(
-        self, machine_id: uuid.UUID, owner_id: uuid.UUID
-    ) -> Machine | None:
-        stmt = select(Machine).where(
-            Machine.id == machine_id, Machine.owner_id == owner_id
-        )
+    async def get_for_owner(self, machine_id: uuid.UUID, owner_id: uuid.UUID) -> Machine | None:
+        stmt = select(Machine).where(Machine.id == machine_id, Machine.owner_id == owner_id)
         result = await self.session.execute(stmt)
         return result.scalars().first()

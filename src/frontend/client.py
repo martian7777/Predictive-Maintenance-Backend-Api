@@ -3,6 +3,7 @@
 Holds the bearer token in-instance so each Gradio session carries its own
 authenticated client (stored in gr.State).
 """
+
 from __future__ import annotations
 
 import os
@@ -76,9 +77,7 @@ class APIClient:
 
     # ------------------------------------------------------------------ machines
     def list_machines(self) -> list[dict]:
-        return self._handle(
-            self._client.get(self._url("/machines"), headers=self._headers())
-        )
+        return self._handle(self._client.get(self._url("/machines"), headers=self._headers()))
 
     def create_machine(self, name: str, type_: str, location: str | None = None) -> dict:
         return self._handle(
@@ -91,9 +90,7 @@ class APIClient:
 
     def machine_summary(self, machine_id: str) -> dict:
         return self._handle(
-            self._client.get(
-                self._url(f"/machines/{machine_id}/summary"), headers=self._headers()
-            )
+            self._client.get(self._url(f"/machines/{machine_id}/summary"), headers=self._headers())
         )
 
     # ------------------------------------------------------------------ telemetry
@@ -109,9 +106,7 @@ class APIClient:
 
     def get_task(self, task_id: str) -> dict:
         return self._handle(
-            self._client.get(
-                self._url(f"/telemetry/tasks/{task_id}"), headers=self._headers()
-            )
+            self._client.get(self._url(f"/telemetry/tasks/{task_id}"), headers=self._headers())
         )
 
     def get_series(self, machine_id: str, limit: int = 5000) -> dict:

@@ -1,4 +1,5 @@
 """Authentication endpoint tests."""
+
 from __future__ import annotations
 
 import pytest
@@ -46,9 +47,7 @@ async def test_login_and_me(client: AsyncClient):
     assert resp.status_code == 200
     token = resp.json()["access_token"]
 
-    me = await client.get(
-        "/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"}
-    )
+    me = await client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert me.status_code == 200
     assert me.json()["email"] == "login@example.com"
 

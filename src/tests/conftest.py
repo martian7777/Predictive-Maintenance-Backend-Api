@@ -3,6 +3,7 @@
 Tests run fully offline — no PostgreSQL, no OpenRouter — using an in-memory
 SQLite database and the built-in mock AI explainer.
 """
+
 from __future__ import annotations
 
 import os

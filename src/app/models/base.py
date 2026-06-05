@@ -1,4 +1,5 @@
 """Declarative base and shared column mixins for ORM models."""
+
 from __future__ import annotations
 
 import uuid

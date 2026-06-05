@@ -3,6 +3,7 @@
 All values are sourced from environment variables (and a local `.env` file in
 development). Settings are cached so the object is parsed once per process.
 """
+
 from __future__ import annotations
 
 from functools import lru_cache

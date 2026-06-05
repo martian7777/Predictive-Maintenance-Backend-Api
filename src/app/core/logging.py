@@ -3,6 +3,7 @@
 Produces human-friendly console logs in development and JSON logs in
 production so they can be ingested by log aggregators.
 """
+
 from __future__ import annotations
 
 import logging

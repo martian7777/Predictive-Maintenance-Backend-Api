@@ -1,4 +1,5 @@
 """Machine business logic: CRUD scoped to an owner, plus rolled-up summaries."""
+
 from __future__ import annotations
 
 import uuid

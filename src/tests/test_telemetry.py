@@ -4,6 +4,7 @@ The background CSV task creates its own sessions via ``AsyncSessionLocal``.
 We monkeypatch that module global onto the in-memory test engine so the task
 and the API read/write the same database.
 """
+
 from __future__ import annotations
 
 import io
@@ -84,9 +85,7 @@ def test_detector_persistence(tmp_path):
     detector.save(path)
     loaded = IsolationForestDetector.load(path)
     assert loaded.is_fitted
-    np.testing.assert_array_equal(
-        loaded.predict(data).flags, detector.predict(data).flags
-    )
+    np.testing.assert_array_equal(loaded.predict(data).flags, detector.predict(data).flags)
 
 
 # --------------------------------------------------------------- unit: csv parsing
@@ -130,9 +129,7 @@ async def test_upload_processes_and_persists(
     auth_client: AsyncClient, machine_id: str, _patch_session
 ):
     files = {"file": ("sensors.csv", _make_csv(200), "text/csv")}
-    resp = await auth_client.post(
-        f"/api/v1/telemetry/upload/{machine_id}", files=files
-    )
+    resp = await auth_client.post(f"/api/v1/telemetry/upload/{machine_id}", files=files)
     assert resp.status_code == 202
     task_id = resp.json()["task_id"]
 
@@ -144,9 +141,7 @@ async def test_upload_processes_and_persists(
     assert body["rows_processed"] == 200
     assert body["anomalies_detected"] >= 1
 
-    series = await auth_client.get(
-        f"/api/v1/telemetry/machines/{machine_id}/series"
-    )
+    series = await auth_client.get(f"/api/v1/telemetry/machines/{machine_id}/series")
     assert series.status_code == 200
     assert series.json()["count"] == 200
 
@@ -163,25 +158,19 @@ async def test_series_anomalies_and_tasks_endpoints(
     await auth_client.post(f"/api/v1/telemetry/upload/{machine_id}", files=files)
 
     # Anomalies-only listing returns a subset of readings, all flagged.
-    anomalies = await auth_client.get(
-        f"/api/v1/telemetry/machines/{machine_id}/anomalies"
-    )
+    anomalies = await auth_client.get(f"/api/v1/telemetry/machines/{machine_id}/anomalies")
     assert anomalies.status_code == 200
     body = anomalies.json()
     assert len(body) >= 1
     assert all(r["is_anomaly"] for r in body)
 
     # Series respects the limit parameter.
-    series = await auth_client.get(
-        f"/api/v1/telemetry/machines/{machine_id}/series?limit=50"
-    )
+    series = await auth_client.get(f"/api/v1/telemetry/machines/{machine_id}/series?limit=50")
     assert series.status_code == 200
     assert series.json()["count"] == 50
 
     # Task listing for the machine shows the completed upload.
-    tasks = await auth_client.get(
-        f"/api/v1/telemetry/machines/{machine_id}/tasks"
-    )
+    tasks = await auth_client.get(f"/api/v1/telemetry/machines/{machine_id}/tasks")
     assert tasks.status_code == 200
     assert len(tasks.json()) == 1
     assert tasks.json()[0]["status"] == "COMPLETED"
@@ -196,9 +185,7 @@ async def test_get_unknown_task_404(auth_client: AsyncClient):
 
 async def test_upload_rejects_non_csv(auth_client: AsyncClient, machine_id: str):
     files = {"file": ("data.txt", b"not a csv", "text/plain")}
-    resp = await auth_client.post(
-        f"/api/v1/telemetry/upload/{machine_id}", files=files
-    )
+    resp = await auth_client.post(f"/api/v1/telemetry/upload/{machine_id}", files=files)
     assert resp.status_code == 422
 
 
@@ -208,9 +195,7 @@ async def test_upload_with_bad_columns_marks_task_failed(
     # Valid .csv extension but no recognised sensor columns -> processing fails.
     bad = b"foo,bar\n1,2\n3,4\n"
     files = {"file": ("bad.csv", bad, "text/csv")}
-    resp = await auth_client.post(
-        f"/api/v1/telemetry/upload/{machine_id}", files=files
-    )
+    resp = await auth_client.post(f"/api/v1/telemetry/upload/{machine_id}", files=files)
     assert resp.status_code == 202
     task_id = resp.json()["task_id"]
 
@@ -220,13 +205,9 @@ async def test_upload_with_bad_columns_marks_task_failed(
     assert body["error_message"]
 
 
-async def test_upload_requires_owned_machine(
-    auth_client: AsyncClient, _patch_session
-):
+async def test_upload_requires_owned_machine(auth_client: AsyncClient, _patch_session):
     import uuid
 
     files = {"file": ("sensors.csv", _make_csv(50), "text/csv")}
-    resp = await auth_client.post(
-        f"/api/v1/telemetry/upload/{uuid.uuid4()}", files=files
-    )
+    resp = await auth_client.post(f"/api/v1/telemetry/upload/{uuid.uuid4()}", files=files)
     assert resp.status_code == 404

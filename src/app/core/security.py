@@ -1,4 +1,5 @@
 """Password hashing and JWT token utilities."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -26,9 +27,7 @@ def hash_password(plain_password: str) -> str:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     try:
-        return bcrypt.checkpw(
-            _to_bcrypt_bytes(plain_password), hashed_password.encode("utf-8")
-        )
+        return bcrypt.checkpw(_to_bcrypt_bytes(plain_password), hashed_password.encode("utf-8"))
     except (ValueError, TypeError):
         return False
 
@@ -50,9 +49,7 @@ def create_access_token(
 def decode_access_token(token: str) -> str:
     """Return the subject (user id) from a valid access token or raise."""
     try:
-        payload = jwt.decode(
-            token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm]
-        )
+        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
     except JWTError as exc:
         raise AuthenticationError("Invalid or expired token") from exc
 

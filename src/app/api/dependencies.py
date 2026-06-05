@@ -1,4 +1,5 @@
 """Common FastAPI dependencies: DB session and current authenticated user."""
+
 from __future__ import annotations
 
 import uuid

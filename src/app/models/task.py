@@ -1,4 +1,5 @@
 """Background processing task ORM model."""
+
 from __future__ import annotations
 
 import uuid

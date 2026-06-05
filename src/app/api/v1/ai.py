@@ -1,4 +1,5 @@
 """AI explanation endpoints (OpenRouter / Gemini with mock fallback)."""
+
 from __future__ import annotations
 
 import uuid
@@ -19,6 +20,4 @@ async def explain_machine(
     session: DbSession,
     window: int = Query(500, ge=10, le=5000, description="Number of recent readings to analyse"),
 ) -> AIExplanationResponse:
-    return await AIService(session).explain_machine(
-        machine_id, current_user.id, window=window
-    )
+    return await AIService(session).explain_machine(machine_id, current_user.id, window=window)
