@@ -4,9 +4,12 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, func
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy import DateTime, Uuid, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+# Portable UUID column type: native ``UUID`` on PostgreSQL, ``CHAR(32)`` on
+# other backends (e.g. SQLite used in tests). Single source of truth.
+GUID = Uuid(as_uuid=True)
 
 
 class Base(DeclarativeBase):
@@ -15,7 +18,7 @@ class Base(DeclarativeBase):
 
 class UUIDMixin:
     id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
+        GUID,
         primary_key=True,
         default=uuid.uuid4,
     )

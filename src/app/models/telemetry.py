@@ -6,10 +6,9 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base, UUIDMixin
+from app.models.base import GUID, Base, UUIDMixin
 
 if TYPE_CHECKING:
     from app.models.machine import Machine
@@ -19,7 +18,7 @@ class SensorTelemetry(UUIDMixin, Base):
     __tablename__ = "sensor_telemetry"
 
     machine_id: Mapped[uuid.UUID] = mapped_column(
-        PG_UUID(as_uuid=True),
+        GUID,
         ForeignKey("machines.id", ondelete="CASCADE"),
         nullable=False,
     )
