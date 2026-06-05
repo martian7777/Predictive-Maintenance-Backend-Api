@@ -25,6 +25,7 @@ services:
     environment:
       POSTGRES_HOST: db
       API_BASE_URL: http://api:8000
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-pmuser}:${POSTGRES_PASSWORD:-pmpassword}@db:5432/${POSTGRES_DB:-predictive_maintenance}
     depends_on:
       db:
         condition: service_healthy
