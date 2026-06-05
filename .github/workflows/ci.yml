@@ -37,7 +37,7 @@ jobs:
         env:
           ENVIRONMENT: testing
           JWT_SECRET_KEY: ci-test-secret
-          DATABASE_URL: sqlite+aiosqlite:///:memory:
+          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
           OPENROUTER_API_KEY: ""
         run: |
           pytest --cov=app --cov-report=term-missing --cov-report=xml
