@@ -63,3 +63,48 @@ async def test_explain_requires_auth(client: AsyncClient):
 
     resp = await client.get(f"/api/v1/ai/explain/{uuid.uuid4()}")
     assert resp.status_code == 401
+
+
+async def test_explain_uses_openrouter_when_enabled(
+    auth_client: AsyncClient, machine_id: str, monkeypatch
+):
+    """When a key is configured, the OpenRouter path is used and parsed."""
+    import json as _json
+    import types
+
+    from app.core import config as config_module
+    from app.services import ai_service as ai_module
+
+    # Pretend AI is enabled.
+    monkeypatch.setattr(config_module.settings, "openrouter_api_key", "test-key")
+    monkeypatch.setattr(ai_module.settings, "openrouter_api_key", "test-key")
+
+    payload = {
+        "summary": "Bearing wear detected.",
+        "explanation": "Vibration trending up.",
+        "recommendations": ["Inspect bearings", "Re-lubricate"],
+    }
+
+    class _FakeCompletions:
+        async def create(self, **kwargs):
+            msg = types.SimpleNamespace(content=_json.dumps(payload))
+            choice = types.SimpleNamespace(message=msg)
+            return types.SimpleNamespace(choices=[choice])
+
+    class _FakeChat:
+        completions = _FakeCompletions()
+
+    class _FakeClient:
+        def __init__(self, *a, **k):
+            self.chat = _FakeChat()
+
+    import openai
+
+    monkeypatch.setattr(openai, "AsyncOpenAI", _FakeClient)
+
+    resp = await auth_client.get(f"/api/v1/ai/explain/{machine_id}")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["is_mock"] is False
+    assert body["summary"] == "Bearing wear detected."
+    assert "Inspect bearings" in body["recommendations"]

@@ -68,3 +68,21 @@ async def test_login_wrong_password(client: AsyncClient):
 async def test_me_requires_auth(client: AsyncClient):
     resp = await client.get("/api/v1/auth/me")
     assert resp.status_code == 401
+
+
+async def test_inactive_user_cannot_authenticate(session_factory):
+    from app.core.exceptions import AuthenticationError
+    from app.repositories.user_repo import UserRepository
+    from app.schemas.user import UserCreate
+    from app.services.auth_service import AuthService
+
+    async with session_factory() as session:
+        service = AuthService(session)
+        user = await service.register(
+            UserCreate(email="inactive@example.com", password="password123")
+        )
+        await UserRepository(session).update(user, is_active=False)
+        await session.commit()
+
+        with pytest.raises(AuthenticationError):
+            await service.authenticate("inactive@example.com", "password123")

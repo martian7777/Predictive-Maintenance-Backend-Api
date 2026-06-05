@@ -21,7 +21,7 @@ class User(UUIDMixin, TimestampMixin, Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
-    machines: Mapped[list["Machine"]] = relationship(
+    machines: Mapped[list[Machine]] = relationship(
         back_populates="owner",
         cascade="all, delete-orphan",
         lazy="selectin",

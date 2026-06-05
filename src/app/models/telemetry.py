@@ -36,7 +36,7 @@ class SensorTelemetry(UUIDMixin, Base):
         Boolean, default=False, nullable=False, index=True
     )
 
-    machine: Mapped["Machine"] = relationship(back_populates="telemetry")
+    machine: Mapped[Machine] = relationship(back_populates="telemetry")
 
     __table_args__ = (
         # Most common access pattern: a machine's readings within a time window.

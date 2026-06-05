@@ -37,13 +37,13 @@ class Machine(UUIDMixin, TimestampMixin, Base):
         index=True,
     )
 
-    owner: Mapped["User"] = relationship(back_populates="machines")
-    telemetry: Mapped[list["SensorTelemetry"]] = relationship(
+    owner: Mapped[User] = relationship(back_populates="machines")
+    telemetry: Mapped[list[SensorTelemetry]] = relationship(
         back_populates="machine",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
-    tasks: Mapped[list["Task"]] = relationship(
+    tasks: Mapped[list[Task]] = relationship(
         back_populates="machine",
         cascade="all, delete-orphan",
         passive_deletes=True,

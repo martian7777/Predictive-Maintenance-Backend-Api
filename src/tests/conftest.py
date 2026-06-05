@@ -8,7 +8,6 @@ from __future__ import annotations
 import os
 from collections.abc import AsyncGenerator
 
-import pytest
 import pytest_asyncio
 
 # Force a deterministic, secret-free test configuration before app import.
@@ -18,7 +17,11 @@ os.environ.setdefault("OPENROUTER_API_KEY", "")  # ensure mock explainer
 os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
 from httpx import ASGITransport, AsyncClient  # noqa: E402
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine  # noqa: E402
+from sqlalchemy.ext.asyncio import (  # noqa: E402
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.pool import StaticPool  # noqa: E402
 
 from app.core.database import get_db  # noqa: E402

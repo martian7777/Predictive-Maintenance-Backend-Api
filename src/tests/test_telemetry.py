@@ -202,6 +202,24 @@ async def test_upload_rejects_non_csv(auth_client: AsyncClient, machine_id: str)
     assert resp.status_code == 422
 
 
+async def test_upload_with_bad_columns_marks_task_failed(
+    auth_client: AsyncClient, machine_id: str, _patch_session
+):
+    # Valid .csv extension but no recognised sensor columns -> processing fails.
+    bad = b"foo,bar\n1,2\n3,4\n"
+    files = {"file": ("bad.csv", bad, "text/csv")}
+    resp = await auth_client.post(
+        f"/api/v1/telemetry/upload/{machine_id}", files=files
+    )
+    assert resp.status_code == 202
+    task_id = resp.json()["task_id"]
+
+    task = await auth_client.get(f"/api/v1/telemetry/tasks/{task_id}")
+    body = task.json()
+    assert body["status"] == "FAILED"
+    assert body["error_message"]
+
+
 async def test_upload_requires_owned_machine(
     auth_client: AsyncClient, _patch_session
 ):

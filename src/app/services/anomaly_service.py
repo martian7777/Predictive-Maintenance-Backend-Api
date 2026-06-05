@@ -177,7 +177,7 @@ class IsolationForestDetector:
         )
 
     @classmethod
-    def load(cls, path: str | Path) -> "IsolationForestDetector":
+    def load(cls, path: str | Path) -> IsolationForestDetector:
         data = joblib.load(path)
         detector = cls(contamination=data.get("contamination"))
         detector._model = data["model"]

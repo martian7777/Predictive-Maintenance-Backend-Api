@@ -1,16 +1,16 @@
 """Shared enumerations used across models and schemas."""
 from __future__ import annotations
 
-import enum
+from enum import StrEnum
 
 
-class MachineStatus(str, enum.Enum):
+class MachineStatus(StrEnum):
     OK = "OK"
     WARNING = "WARNING"
     CRITICAL = "CRITICAL"
 
 
-class TaskStatus(str, enum.Enum):
+class TaskStatus(StrEnum):
     PENDING = "PENDING"
     PROCESSING = "PROCESSING"
     COMPLETED = "COMPLETED"

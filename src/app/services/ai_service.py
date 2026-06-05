@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from statistics import fmean
 from typing import Any
 
@@ -66,7 +66,7 @@ class AIService:
             machine_name=machine.name,
             machine_status=machine.status.value,
             model_used=model_used,
-            generated_at=datetime.now(timezone.utc),
+            generated_at=datetime.now(UTC),
             window_analyzed=context["analyzed"],
             anomalies_found=context["anomaly_count"],
             summary=content["summary"],

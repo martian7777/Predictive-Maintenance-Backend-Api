@@ -35,7 +35,7 @@ class Task(UUIDMixin, TimestampMixin, Base):
     anomalies_detected: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    machine: Mapped["Machine"] = relationship(back_populates="tasks")
+    machine: Mapped[Machine] = relationship(back_populates="tasks")
 
     def __repr__(self) -> str:  # pragma: no cover
         return f"<Task {self.id} {self.status} rows={self.rows_processed}>"
