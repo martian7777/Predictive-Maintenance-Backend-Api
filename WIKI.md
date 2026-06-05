@@ -1,423 +1,391 @@
-# Predictive Maintenance — Operations & Usage Wiki
+# Operations & Usage Wiki
 
-A complete, hands-on guide: setup, configuration, database, API, the Gradio UI,
-testing, troubleshooting, and production deployment.
+Welcome to the operations wiki. This guide covers setup, database configuration, full API endpoints, Gradio client instructions, testing, troubleshooting, and production deployment parameters.
 
 ---
 
-## Table of contents
+## 📋 Table of Contents
 
-1. [Prerequisites](#1-prerequisites)
-2. [Configuration](#2-configuration)
-3. [Running with Docker](#3-running-with-docker)
-4. [Running locally](#4-running-locally)
-5. [Database & migrations](#5-database--migrations)
-6. [Database schema](#6-database-schema)
-7. [API reference](#7-api-reference)
-8. [Using the Gradio UI](#8-using-the-gradio-ui)
-9. [CSV format & ingestion](#9-csv-format--ingestion)
-10. [Anomaly detection](#10-anomaly-detection)
-11. [AI explanations (OpenRouter)](#11-ai-explanations-openrouter)
-12. [Testing](#12-testing)
-13. [Troubleshooting](#13-troubleshooting)
-14. [Production deployment](#14-production-deployment)
+1. [⚙️ Prerequisites](#1-prerequisites)
+2. [🎛️ System Configuration](#2-configuration)
+3. [🐳 Containerized Deployment (Docker)](#3-running-with-docker)
+4. [🛠️ Native Local Setup](#4-running-locally)
+5. [🗄️ Database Migrations](#5-database--migrations)
+6. [🗃️ Database Schema](#6-database-schema)
+7. [🔌 REST API Reference](#7-api-reference)
+8. [📊 Using the Gradio UI](#8-using-the-gradio-ui)
+9. [📈 Ingestion Parameters & CSV Formats](#9-csv-format--ingestion)
+10. [🌲 Anomaly Detection Configuration](#10-anomaly-detection)
+11. [🤖 GenAI OpenRouter Setup](#11-ai-explanations-openrouter)
+12. [🧪 Testing Instructions](#12-testing)
+13. [🩺 Troubleshooting Guide](#13-troubleshooting)
+14. [🚀 Production Checklist](#14-production-deployment)
 
 ---
 
 ## 1. Prerequisites
 
-- **Python 3.11+**
-- **PostgreSQL 14+** (16 recommended) — or just use Docker Compose
-- **Docker + Docker Compose** (optional but easiest)
-- An **OpenRouter API key** (optional; the system runs with a mock explainer
-  without one)
+Before installing, ensure your machine satisfies the following hardware and software versions:
+- **Python**: Version `3.11+`
+- **PostgreSQL**: Version `14` or newer (PG 16 recommended)
+- **Docker & Compose**: Optional, but recommended for zero-configuration startup.
+- **OpenRouter API Key**: Optional. Required to output LLM-backed diagnostics; defaults to a rule-based engine if empty.
 
 ---
 
 ## 2. Configuration
 
-All configuration is environment-driven via `app/core/config.py`
-(Pydantic Settings). Copy the template and edit:
+All application configurations are driven by local environment variables. They are loaded and validated by Pydantic Settings at startup (`app/core/config.py`).
 
+To initialize configuration:
 ```bash
 cp .env.example .env
 ```
 
-| Variable | Default | Purpose |
+### ⚙️ Available Settings
+
+| Variable | Default Value | Purpose / Notes |
 |---|---|---|
-| `ENVIRONMENT` | `development` | `development` / `testing` / `production` |
-| `DEBUG` | `true` | Verbose logging + SQL echo in dev |
-| `API_V1_PREFIX` | `/api/v1` | API route prefix |
-| `API_PORT` | `8000` | FastAPI port |
-| `FRONTEND_PORT` | `7860` | Gradio port |
-| `API_BASE_URL` | `http://localhost:8000` | URL the frontend calls |
-| `POSTGRES_*` | see file | DB connection parts |
-| `DATABASE_URL` | _(unset)_ | Full async DSN override |
-| `JWT_SECRET_KEY` | _change me_ | HMAC secret for tokens |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | `60` | Token lifetime |
-| `OPENROUTER_API_KEY` | _(empty)_ | Enables real AI; empty ⇒ mock |
-| `OPENROUTER_MODEL` | `google/gemini-2.5-pro` | Primary model |
-| `OPENROUTER_FALLBACK_MODEL` | `google/gemini-2.5-flash` | Fallback model |
-| `CSV_CHUNK_SIZE` | `50000` | Rows per processing chunk |
-| `ISOLATION_FOREST_CONTAMINATION` | `0.02` | Expected anomaly fraction |
-| `ISOLATION_FOREST_N_ESTIMATORS` | `100` | Trees in the forest |
-| `MODEL_DIR` | `./models` | Persisted detectors |
+| `ENVIRONMENT` | `development` | Core environment context: `development`, `testing`, or `production`. |
+| `DEBUG` | `true` | Enables verbose debug logging and raw SQL command echoing. |
+| `API_V1_PREFIX` | `/api/v1` | Root context prefix for all API routers. |
+| `API_PORT` | `8000` | Port assigned to the FastAPI server. |
+| `FRONTEND_PORT` | `7860` | Port assigned to the Gradio web client. |
+| `API_BASE_URL` | `http://localhost:8000` | Address used by the frontend client to communicate with the API. |
+| `POSTGRES_HOST` | `localhost` | PostgreSQL hostname. |
+| `POSTGRES_PORT` | `5432` | PostgreSQL standard port. |
+| `POSTGRES_USER` | `postgres` | PostgreSQL username. |
+| `POSTGRES_PASSWORD` | `postgres` | PostgreSQL password. |
+| `POSTGRES_DB` | `predictive_db` | Target database name. |
+| `DATABASE_URL` | *(None)* | Overrides connection parts with a direct, custom async connection string. |
+| `JWT_SECRET_KEY` | *(Required)* | Asymmetric HMAC key for signature validation. Change this in production. |
+| `ACCESS_TOKEN_EXPIRE_MINUTES`| `60` | Expiration time of generated bearer tokens. |
+| `OPENROUTER_API_KEY` | *(None)* | OpenRouter credentials. If omitted, the mock explainer starts. |
+| `OPENROUTER_MODEL` | `google/gemini-2.5-pro` | Primary LLM model used for reports. |
+| `OPENROUTER_FALLBACK_MODEL` | `google/gemini-2.5-flash` | Fallback model used on network or quota failure. |
+| `CSV_CHUNK_SIZE` | `50000` | Iteration size for chunked pandas streams. |
+| `ISOLATION_FOREST_CONTAMINATION`| `0.02` | Expected percentage of anomalies in raw feeds. |
+| `ISOLATION_FOREST_N_ESTIMATORS` | `100` | Number of decision trees to spawn in the Isolation Forest. |
+| `MODEL_DIR` | `./models` | Directory path where trained `.joblib` model binaries are saved. |
 
-Generate a strong secret:
-
-```bash
-python -c "import secrets; print(secrets.token_urlsafe(64))"
-```
+> [!TIP]
+> You can quickly generate a secure, 64-character JWT secret key with this command:
+> ```bash
+> python -c "import secrets; print(secrets.token_urlsafe(64))"
+> ```
 
 ---
 
 ## 3. Running with Docker
 
+Deploy a production-like environment with a single command:
+
 ```bash
 docker-compose up --build
 ```
 
-Services:
+### 📦 Services Manifest
+- **`db`** (Port `5432`): Starts PostgreSQL 16. Uses a persistent named volume (`pgdata`) to protect sensor data across restarts.
+- **`api`** (Port `8000`): Runs database migrations automatically (`alembic upgrade head`) and launches `uvicorn`.
+- **`frontend`** (Port `7860`): Launches the Gradio application inside the Compose network.
 
-| Service | Port | Notes |
-|---|---|---|
-| `db` | 5432 | PostgreSQL 16, persistent volume `pgdata` |
-| `api` | 8000 | Runs `alembic upgrade head` then `uvicorn` |
-| `frontend` | 7860 | Gradio UI, talks to `api` over the compose network |
+> [!IMPORTANT]
+> To execute tests inside a containerized runtime, execute:
+> ```bash
+> docker-compose run --rm api pytest -v
+> ```
 
-Run the test suite in a throwaway container:
-
-```bash
-docker-compose run --rm api pytest -v
-```
-
-Tear down (keep data): `docker-compose down` — or wipe volumes:
-`docker-compose down -v`.
+To tear down services while preserving databases, use `docker-compose down`. Use the `-v` flag if you want to completely purge databases and start fresh: `docker-compose down -v`.
 
 ---
 
-## 4. Running locally
+## 4. Running Locally
 
+Follow these instructions to run the application components natively.
+
+### 🐍 Virtual Environment Setup
 ```bash
+# Initialize
 python -m venv .venv
-# Windows PowerShell:
+
+# Activate (Windows PowerShell)
 .venv\Scripts\Activate.ps1
-# bash:
+
+# Activate (Linux / macOS Bash)
 source .venv/bin/activate
 
+# Install development and testing dependencies
 pip install -e ".[dev]"
-cp .env.example .env
 ```
 
-Start PostgreSQL (Docker is easiest):
+### 🏃 Start Services
+Ensure you have a PostgreSQL database instance running (Docker makes this easy: `docker-compose up -d db`), then run:
 
 ```bash
-docker-compose up -d db
-```
-
-Apply migrations and launch both processes:
-
-```bash
+# Run database migrations
 python run.py migrate
-python run.py            # API on :8000, Gradio on :7860
+
+# Start backend and frontend services in parallel
+python run.py
 ```
 
-`run.py` also accepts `api`, `frontend`, or `migrate` to run a single target.
+The script `run.py` accepts task flags. To isolate workloads, run:
+- `python run.py api` (Starts FastAPI backend only)
+- `python run.py frontend` (Starts Gradio client only)
+- `python run.py migrate` (Executes Alembic migrations only)
 
 ---
 
-## 5. Database & migrations
+## 5. Database & Migrations
 
-Migrations use **async Alembic**; the DB URL and metadata come from app settings
-and `app.models.Base` (not `alembic.ini`).
+Database operations are managed via async Alembic. Settings are loaded programmatically, ignoring the static connection configuration inside `alembic.ini`.
 
 ```bash
-alembic upgrade head           # apply all migrations
-alembic downgrade -1           # roll back one
-alembic current                # show current revision
-alembic history                # list revisions
-alembic revision --autogenerate -m "add column x"   # create a new migration
+# Bring the database schema up to the latest revision
+alembic upgrade head
+
+# Roll back the database schema by one revision
+alembic downgrade -1
+
+# Show the active schema version hash
+alembic current
+
+# Output history logs of all migrations
+alembic history
+
+# Generate a new migration file after modifying models
+alembic revision --autogenerate -m "describe changes here"
 ```
 
-The initial migration `0001_initial` creates all four tables, enums, and
-indexes. Autogenerated revisions are auto-formatted by the `ruff` post-write hook.
+> [!NOTE]
+> Custom migrations are auto-formatted upon generation using a pre-configured Ruff post-write hook.
 
 ---
 
-## 6. Database schema
+## 6. Database Schema
+
+The database relies on 4 core tables to manage tenants, physical assets, telemetry feeds, and ingestion logs.
 
 ```mermaid
 erDiagram
-    User ||--o{ Machine : owns
-    Machine ||--o{ SensorTelemetry : has
-    Machine ||--o{ Task : has
+    USERS ||--o{ MACHINES : "manages"
+    MACHINES ||--o{ SENSOR_TELEMETRY : "records"
+    MACHINES ||--o{ INGESTION_TASKS : "runs"
 
-    User {
-        uuid id PK
-        string email UK
-        string hashed_password
-        string full_name
-        bool is_active
-        bool is_superuser
-        datetime created_at
-        datetime updated_at
+    USERS {
+        uuid id PK "Primary key"
+        varchar email UK "Unique login identifier"
+        varchar hashed_password "Bcrypt encrypted hash"
+        varchar full_name "User full name"
+        boolean is_active "Status flag"
+        boolean is_superuser "Admin privilege flag"
+        timestamp created_at "Record creation time"
+        timestamp updated_at "Record modification time"
     }
-    Machine {
-        uuid id PK
-        string name
-        string type
-        string location
-        enum status "OK|WARNING|CRITICAL"
-        uuid owner_id FK
-        datetime created_at
-        datetime updated_at
+
+    MACHINES {
+        uuid id PK "Primary key"
+        uuid owner_id FK "References USERS.id"
+        varchar name "Machine identity label"
+        varchar type "Machine classification (e.g. pump)"
+        varchar location "Installation location"
+        varchar status "OK | WARNING | CRITICAL"
+        timestamp created_at "Record creation time"
+        timestamp updated_at "Record modification time"
     }
-    SensorTelemetry {
-        uuid id PK
-        uuid machine_id FK
-        datetime timestamp "INDEX"
-        float temperature
-        float vibration
-        float pressure
-        float rotational_speed
-        float anomaly_score
-        bool is_anomaly "INDEX"
+
+    SENSOR_TELEMETRY {
+        uuid id PK "Primary key"
+        uuid machine_id FK "References MACHINES.id"
+        timestamp timestamp INDEX "Measurement time"
+        float temperature "Sensor metric"
+        float vibration "Sensor metric"
+        float pressure "Sensor metric"
+        float rotational_speed "Sensor metric"
+        float anomaly_score "Computed score [0, 1]"
+        boolean is_anomaly INDEX "Scored outlier flag"
     }
-    Task {
-        uuid id PK
-        uuid machine_id FK
-        enum status "PENDING|PROCESSING|COMPLETED|FAILED"
-        string file_name
-        int rows_processed
-        int anomalies_detected
-        text error_message
-        datetime created_at
-        datetime updated_at
+
+    INGESTION_TASKS {
+        uuid id PK "Primary key"
+        uuid machine_id FK "References MACHINES.id"
+        varchar status "PENDING | PROCESSING | COMPLETED | FAILED"
+        varchar file_name "Uploaded CSV file name"
+        integer rows_processed "Processed telemetry rows count"
+        integer anomalies_detected "Outlier rows count"
+        text error_message "Failure details (if any)"
+        timestamp created_at "Record creation time"
+        timestamp updated_at "Record modification time"
     }
 ```
 
-**Indexes of note:** composite `(machine_id, timestamp)` and
-`(machine_id, is_anomaly)` on `sensor_telemetry` cover the dominant access
-patterns (time-window scans and anomaly filtering per machine).
+### ⚡ Optimization Indexes
+- **`sensor_telemetry(machine_id, timestamp)`**: Accelerates historical timeline extraction and visual rendering.
+- **`sensor_telemetry(machine_id, is_anomaly)`**: Speeds up filtering operations on isolated anomaly events.
 
 ---
 
-## 7. API reference
+## 7. REST API Reference
 
-Base URL: `http://localhost:8000`. Interactive docs at `/docs` (Swagger) and
-`/redoc`. All endpoints below are prefixed with `/api/v1`.
+Explore the full HTTP REST contract. The active Swagger definition resides at `http://localhost:8000/docs`. All routes are prefixed with `/api/v1`.
 
-### Auth
+### 🔐 Auth Endpoint
+| Method | Endpoint | Authentication | Details |
+|:---:|---|:---:|---|
+| **`POST`** | `/auth/register` | None | Create a user. Payload: `{email, password, full_name}` |
+| **`POST`** | `/auth/login` | None | Classic OAuth2 login. Form body: `username`, `password`. |
+| **`GET`** | `/auth/me` | ✅ Bearer | Returns the profile model of the authenticated user. |
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| POST | `/auth/register` | — | Create a user. Body: `{email, password, full_name?}` |
-| POST | `/auth/login` | — | OAuth2 form (`username`=email, `password`). Returns `{access_token, token_type, expires_in}` |
-| GET | `/auth/me` | ✅ | Current user |
+### 🏭 Machine Registry
+| Method | Endpoint | Authentication | Details |
+|:---:|---|:---:|---|
+| **`POST`** | `/machines` | ✅ Bearer | Create a new asset. Payload: `{name, type, location}` |
+| **`GET`** | `/machines` | ✅ Bearer | Paginated list of owned assets. Parameters: `skip`, `limit` |
+| **`GET`** | `/machines/{id}` | ✅ Bearer | Extract details for a specific machine. |
+| **`PATCH`**| `/machines/{id}` | ✅ Bearer | Modify fields or status markers. |
+| **`DELETE`**| `/machines/{id}` | ✅ Bearer | Delete asset (cascades telemetry and tasks). |
+| **`GET`** | `/machines/{id}/summary` | ✅ Bearer | Combines machine metadata with computed anomaly statistics. |
 
-### Machines
+### 📈 Telemetry Ingestion
+| Method | Endpoint | Authentication | Details |
+|:---:|---|:---:|---|
+| **`POST`** | `/telemetry/upload/{machine_id}` | ✅ Bearer | Stream multipart CSV file ➔ Returns `{task_id}` |
+| **`GET`** | `/telemetry/tasks/{task_id}` | ✅ Bearer | Read the execution details of an ingestion task. |
+| **`GET`** | `/telemetry/machines/{id}/tasks` | ✅ Bearer | Fetch ingestion task history for an asset. |
+| **`GET`** | `/telemetry/machines/{id}/series`| ✅ Bearer | Get array lists of recent sensor readings. |
+| **`GET`** | `/telemetry/machines/{id}/anomalies`| ✅ Bearer | Extract anomalous records only. |
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| POST | `/machines` | ✅ | Create `{name, type, location?}` |
-| GET | `/machines` | ✅ | List owned machines (`skip`, `limit`) |
-| GET | `/machines/{id}` | ✅ | Get one |
-| GET | `/machines/{id}/summary` | ✅ | Machine + telemetry/anomaly stats |
-| PATCH | `/machines/{id}` | ✅ | Update fields/status |
-| DELETE | `/machines/{id}` | ✅ | Delete (cascades telemetry + tasks) |
+### 🤖 AI Reports
+| Method | Endpoint | Authentication | Details |
+|:---:|---|:---:|---|
+| **`GET`** | `/ai/explain/{machine_id}?window=N` | ✅ Bearer | Fetch AI-driven diagnostic report for the last N readings. |
 
-### Telemetry
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| POST | `/telemetry/upload/{machine_id}` | ✅ | Multipart CSV upload → `202 {task_id}` |
-| GET | `/telemetry/tasks/{task_id}` | ✅ | Poll task status |
-| GET | `/telemetry/machines/{id}/tasks` | ✅ | List a machine's tasks |
-| GET | `/telemetry/machines/{id}/series` | ✅ | Recent readings as parallel arrays (charting) |
-| GET | `/telemetry/machines/{id}/anomalies` | ✅ | Anomalous readings only |
-
-### AI
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| GET | `/ai/explain/{machine_id}?window=N` | ✅ | Maintenance report for the last N readings |
-
-### System
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/health` | Liveness + `ai_enabled` flag |
-| GET | `/` | Service metadata |
-
-### Example: curl walkthrough
-
-```bash
-BASE=http://localhost:8000/api/v1
-
-# register + login
-curl -X POST $BASE/auth/register -H 'Content-Type: application/json' \
-  -d '{"email":"ops@acme.io","password":"password123"}'
-TOKEN=$(curl -s -X POST $BASE/auth/login \
-  -d 'username=ops@acme.io&password=password123' | jq -r .access_token)
-
-# create a machine
-MID=$(curl -s -X POST $BASE/machines -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' \
-  -d '{"name":"Pump-1","type":"pump"}' | jq -r .id)
-
-# upload telemetry
-TID=$(curl -s -X POST $BASE/telemetry/upload/$MID \
-  -H "Authorization: Bearer $TOKEN" -F file=@sensors.csv | jq -r .task_id)
-
-# poll
-curl -s $BASE/telemetry/tasks/$TID -H "Authorization: Bearer $TOKEN" | jq
-
-# AI report
-curl -s $BASE/ai/explain/$MID -H "Authorization: Bearer $TOKEN" | jq
-```
+### 🩺 Health & System
+| Method | Endpoint | Authentication | Details |
+|:---:|---|:---:|---|
+| **`GET`** | `/health` | None | Checks database status and displays AI enablement status. |
+| **`GET`** | `/` | None | Returns backend service metadata and versions. |
 
 ---
 
 ## 8. Using the Gradio UI
 
-Open <http://localhost:7860>. Tabs:
+Start the Gradio service (Port `7860`) and navigate through the structured tabs:
 
-1. **Dashboard & Auth** — register or log in; the session token is held per
-   browser tab. See your machines table (status colour-coded) and register new
-   machines.
-2. **Telemetry Upload** — pick a machine, choose a `.csv`, click *Upload &
-   Process*. A live progress indicator polls the background task until it
-   completes or fails.
-3. **Analytics & Visuals** — pick a machine, *Load Charts*: interactive Plotly
-   time series for temperature and vibration with **anomalies marked as red ×**,
-   plus a stats panel.
-4. **AI Assistant** — pick a machine and analysis window, *Generate Report* for
-   the LLM (or mock) maintenance diagnosis and recommendations.
-
-> Tip: after creating machines or uploading data, the machine dropdowns refresh
-> automatically; use **🔄 Refresh** on the dashboard if needed.
+1. **Dashboard & Auth**:
+   - Register or log into your account.
+   - View your registered machines in a grid showing live status labels (`OK`, `WARNING`, `CRITICAL`).
+   - Create new machine entries.
+2. **Telemetry Upload**:
+   - Select an asset from the dropdown list.
+   - Attach a `.csv` telemetry file and submit.
+   - Monitor the ingestion progress bar, which polls the task status in the background.
+3. **Analytics & Visuals**:
+   - Load dynamic Plotly graphs plotting temperature, pressure, speed, and vibration.
+   - **Anomalies are highlighted as red "X" markers** directly on the lines.
+   - Review general statistics (min, max, mean) for each sensor.
+4. **AI Assistant**:
+   - Request Gemini model analysis for the recent telemetry sequence.
+   - Review anomaly root cause summaries, technical explanations, and recommended operations.
 
 ---
 
-## 9. CSV format & ingestion
+## 9. Ingestion Parameters & CSV Formats
 
-Minimum: at least one sensor column. Canonical columns:
+Uploaded CSV files must contain at least one sensor column. The headers are case-insensitive and automatically resolve common aliases:
 
-```
-timestamp, temperature, vibration, pressure, rotational_speed
-```
-
-Accepted aliases (case-insensitive, spaces → underscores):
-
-| Canonical | Aliases |
+| Canonical Header | Valid Column Name Aliases |
 |---|---|
 | `timestamp` | `time`, `datetime`, `date` |
-| `temperature` | `temp` |
-| `vibration` | `vib` |
+| `temperature` | `temp`, `celcius` |
+| `vibration` | `vib`, `vibration_amplitude` |
+| `pressure` | `psi`, `bar`, `pressure_v` |
 | `rotational_speed` | `rpm`, `speed` |
 
-Ingestion behaviour:
-
-- Streamed in `CSV_CHUNK_SIZE`-row chunks (default 50k).
-- Unknown columns dropped; missing sensor columns added as null.
-- Non-numeric sensor values → `NaN`, imputed with column means before scoring.
-- Missing/invalid timestamps → forward-filled, or a synthetic 1-second series.
-- Each chunk is scored and **bulk-inserted** in its own transaction.
-- On completion the machine status is derived from the anomaly ratio:
-  `≥10%` → `CRITICAL`, `≥2%` or any anomalies → `WARNING`, else `OK`.
+### 🛡️ Data Cleaning & Processing Pipeline
+1. **Missing Data**: Rows with empty values are filled using mean values calculated from the file data.
+2. **Missing Timestamps**: If timestamps are missing or invalid, the ingestion pipeline generates a continuous sequence starting from the last known date, incrementing by 1 second.
+3. **Status Recalculation**: Once an upload is complete, the machine health is updated based on the percentage of anomalies:
+   - **`CRITICAL`**: Anomaly ratio is **`≥ 10%`**.
+   - **`WARNING`**: Anomaly ratio is **`between 0.1% and 10%`**, or any single anomaly is found.
+   - **`OK`**: Zero anomalies are detected.
 
 ---
 
-## 10. Anomaly detection
+## 10. Anomaly Detection
 
-Default: **Isolation Forest** (`scikit-learn`) with `StandardScaler`. Tunables
-via env: `ISOLATION_FOREST_CONTAMINATION`, `ISOLATION_FOREST_N_ESTIMATORS`.
+The ML core uses **Isolation Forest** algorithms from `scikit-learn` inside `app/services/anomaly_service.py`. You can adjust model parameters via your `.env` file:
+- `ISOLATION_FOREST_CONTAMINATION`: The expected outlier ratio in the dataset.
+- `ISOLATION_FOREST_N_ESTIMATORS`: The size of the forest.
 
-The interface lives in `app/services/anomaly_service.py`:
-
-```python
-class AnomalyDetector(Protocol):
-    def fit(self, features: np.ndarray) -> None: ...
-    def predict(self, features: np.ndarray) -> DetectionResult: ...
-    @property
-    def is_fitted(self) -> bool: ...
-```
-
-To switch backends, change `get_default_detector()` (a `ZScoreDetector` is
-provided; a PyTorch autoencoder could implement the same protocol). Models can be
-persisted with `IsolationForestDetector.save/load` for per-machine reuse.
+> [!NOTE]
+> The anomaly detection pipeline uses standard Python interfaces. If you want to use deep learning models (like PyTorch Autoencoders), implement the `AnomalyDetector` class protocol and update `get_default_detector()` in the service layer.
 
 ---
 
-## 11. AI explanations (OpenRouter)
+## 11. AI Explanations (OpenRouter)
 
-Set `OPENROUTER_API_KEY` to enable real LLM reports. The service uses the OpenAI
-SDK pointed at `OPENROUTER_BASE_URL`, requests strict JSON, and tries
-`OPENROUTER_MODEL` then `OPENROUTER_FALLBACK_MODEL`.
-
-Without a key (or on any error) it returns a **deterministic mock** derived from
-the telemetry statistics — so the feature always works, and CI/tests run offline.
-The response's `is_mock` and `model_used` fields tell you which path produced it.
+Add your `OPENROUTER_API_KEY` to the `.env` file to enable AI-powered maintenance diagnostics.
+- The service uses the official OpenAI SDK configured to target the OpenRouter base URL.
+- Structured output is enforced using JSON Schemas.
+- If OpenRouter fails (e.g. rate limits or API outage), the service attempts a fallback to `OPENROUTER_FALLBACK_MODEL`.
+- If no key is configured, a local rules engine analyzes sensor deviations to output deterministic diagnostic reports.
 
 ---
 
 ## 12. Testing
 
+The test suite runs inside an isolated, mock environment:
+
 ```bash
-pytest                              # full suite, in-memory SQLite
-pytest -v                           # verbose
+# Run all unit and integration tests
+pytest
+
+# Run tests and output missing coverage lines
 pytest --cov=app --cov-report=term-missing
-pytest src/tests/test_telemetry.py  # one module
 ```
 
-The suite needs **no PostgreSQL and no network**: it uses an in-memory async
-SQLite DB (the portable `GUID` type makes models backend-agnostic) and the mock
-AI explainer. The background CSV task's session factory is monkeypatched onto the
-test engine so end-to-end upload → process → query is exercised in-process.
-
-Coverage spans auth, machine CRUD + ownership isolation, the detectors, CSV
-validation/parsing, the full upload pipeline, and AI explanations.
+### 🔬 Test Strategy
+- **SQLite Engine**: An in-memory SQLite database is used instead of PostgreSQL.
+- **Mock AI Explainer**: Tests run without internet access, verifying the local rules engine.
+- **Task Mocking**: The background worker session is configured to run synchronously within the testing process, allowing seamless validation of the upload-to-ingest lifecycle.
 
 ---
 
 ## 13. Troubleshooting
 
-| Symptom | Cause / Fix |
-|---|---|
-| `Could not validate credentials` | Missing/expired token — log in again. |
-| Upload returns `404` | Machine not owned by the caller, or wrong id. |
-| Task stuck `PENDING` | Background worker errored before start — check API logs; verify DB reachable. |
-| `is_mock: true` unexpectedly | `OPENROUTER_API_KEY` unset or the API call failed (see logs). |
-| Charts empty | No telemetry yet, or the task `FAILED` — check `error_message`. |
-| Alembic can't connect | `POSTGRES_*` / `DATABASE_URL` wrong, or DB not up. |
-| SQLite errors locally | Tests use SQLite automatically; the app itself needs PostgreSQL. |
-| bcrypt backend warning | Harmless; pin `bcrypt` if noisy. |
+Use this guide to diagnose and resolve common issues:
 
-Enable verbose logs with `DEBUG=true` (also echoes SQL in development).
+| Problem | Potential Cause | Fix / Solution |
+|---|---|---|
+| **`401: Could not validate credentials`** | Missing or expired token. | Log in again via the Auth tab to refresh the JWT token. |
+| **`404: Machine not found`** | Wrong machine ID, or the machine belongs to another user. | Verify the ID. The API hides other users' assets with `404` errors to prevent enumeration. |
+| **Task stuck in `PENDING` status** | The API server is unable to dispatch background tasks. | Check the API logs to verify the database connection is healthy. |
+| **`is_mock` is `true` in AI reports** | API key is missing or the external API call failed. | Check that `OPENROUTER_API_KEY` is set and valid, and review system logs for API errors. |
+| **Analytics charts are empty** | Ingestion task failed, or no telemetry has been uploaded yet. | Check the machine's task history and inspect the `error_message` for details. |
+| **Alembic fails to connect** | The database URL is incorrect, or PostgreSQL is not running. | Verify `POSTGRES_HOST` / `DATABASE_URL` in `.env` and ensure the database container is healthy. |
+| **SQLite errors in local development** | The backend is attempting to connect to SQLite. | The main application requires PostgreSQL. SQLite is only supported for testing. |
 
 ---
 
-## 14. Production deployment
+## 14. Production Deployment
 
-Checklist:
+### 📋 Checklist
 
-- [ ] Strong `JWT_SECRET_KEY`; `ENVIRONMENT=production`, `DEBUG=false`.
-- [ ] Restrict CORS `allow_origins` in `app/main.py` to known origins.
-- [ ] Managed PostgreSQL with backups; run `alembic upgrade head` on deploy.
-- [ ] Run `uvicorn`/`gunicorn` behind a reverse proxy (TLS termination).
-- [ ] Persist `MODEL_DIR` on shared/object storage if running multiple replicas.
-- [ ] For scale, move ingestion to a real task queue (Celery/Arq + Redis) — the
-      `process_csv_task` function is already a self-contained unit of work.
-- [ ] Ship JSON logs (already emitted in production) to your aggregator.
-- [ ] Consider time-partitioning `sensor_telemetry` (or TimescaleDB) at high volume.
+- [ ] Set `ENVIRONMENT=production` and `DEBUG=false` in the production `.env` file.
+- [ ] Generate a secure, high-entropy `JWT_SECRET_KEY`.
+- [ ] Configure `allow_origins` in `app/main.py` to allow only trusted frontend domains.
+- [ ] Set up database backups for your PostgreSQL instance, and run `alembic upgrade head` in your deployment pipeline.
+- [ ] Run backend servers using production-grade WSGI/ASGI servers (like Uvicorn/Gunicorn) behind a reverse proxy (e.g. Nginx, Cloudflare) with TLS enabled.
+- [ ] If running multiple backend containers, configure shared storage (e.g. S3, shared volume) for `MODEL_DIR` so all replicas can access serialized models.
+- [ ] Transition task processing to an external task worker (like Celery/Arq with Redis) for improved scaling and retry capabilities.
 
-### Minimal production run
+### 🚀 Production Startup Command
 
 ```bash
 ENVIRONMENT=production DEBUG=false \
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 ```
 
-> Note: with multiple Uvicorn workers, in-process `BackgroundTasks` run on the
-> worker that accepted the upload. Use an external queue for guaranteed
-> cross-worker processing and retries.
+> [!WARNING]
+> By default, FastAPI `BackgroundTasks` execute inside the active container process. When scaling to multiple Uvicorn workers, task state is restricted to the worker that received the upload. Deploy an external task queue (like Arq) to share ingestion workloads across all instances.

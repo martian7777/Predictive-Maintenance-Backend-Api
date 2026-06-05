@@ -1,161 +1,223 @@
-# Architecture
+# Technical Architecture
 
-This document describes the technical design of the Predictive Maintenance
-platform: its layers, data flow, key decisions, and trade-offs.
+This document describes the architectural layout, core design patterns, component relationships, and primary data flows of the Predictive Maintenance Platform.
 
-## 1. High-level overview
+---
+
+## 1. High-Level Layered Architecture
+
+The system follows a strict **Layered and Dependency-Inverted** architecture. Each layer depends only on the interface and schemas defined by the layers below it, preventing circular dependencies and ensuring high testability.
 
 ```mermaid
-graph TD
-    Client[User Browser] -->|Interacts| Gradio[Gradio Frontend]
-    Gradio -->|REST + JWT| API[FastAPI API Layer]
-    API -->|Authenticate| Dep[Dependencies: get_db, current_user]
-    API -->|Schedule| BG[BackgroundTasks]
-    API -->|Business ops| Serv[Service Layer]
-    Serv -->|Data ops| Repo[Repository Layer]
-    Repo -->|Async driver| DB[(PostgreSQL)]
-    BG -->|Chunked CSV + ML| Serv
-    Serv -->|Isolation Forest| ML[Anomaly Detector]
-    Serv -->|Explain| OR[OpenRouter / Gemini]
+graph TB
+    %% Custom Styles %%
+    classDef client fill:#334155,stroke:#94a3b8,stroke-width:2px,color:#f8fafc;
+    classDef frontend fill:#1e293b,stroke:#f59e0b,stroke-width:2px,color:#f8fafc;
+    classDef backend fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
+    classDef db fill:#1e293b,stroke:#10b981,stroke-width:2px,color:#f8fafc;
+    classDef external fill:#1e293b,stroke:#a855f7,stroke-width:2px,color:#f8fafc;
+    classDef process fill:#1e293b,stroke:#f43f5e,stroke-width:2px,color:#f8fafc;
+
+    subgraph UI [Presentation Layer]
+        Client[User Browser] :::client
+        Gradio[Gradio Web App] :::frontend
+    end
+
+    subgraph API [API Gateway & Routing Layer]
+        FastAPI[FastAPI Routers] :::backend
+        Deps[Dependency Injection<br/>auth, db session] :::backend
+    end
+
+    subgraph Business [Business Logic & Orchestration]
+        Serv[Services Layer<br/>Auth, Machine, Telemetry] :::process
+        BG[Asynchronous Background Tasks] :::process
+    end
+
+    subgraph Engine [Analytics, ML & AI Engine]
+        Detector[Anomaly Detector Protocol<br/>Isolation Forest / Z-Score] :::process
+        AI[AI Explanations Service] :::process
+        OpenRouter[OpenRouter / Gemini] :::external
+    end
+
+    subgraph Data [Data & Persistence]
+        Repo[Repository Layer<br/>Async Queries] :::db
+        Postgres[(PostgreSQL Database)] :::db
+    end
+
+    %% Connections %%
+    Client -->|User Interaction| Gradio
+    Gradio -->|HTTP REST + JWT Bearer| FastAPI
+    FastAPI -->|Extracts Credentials| Deps
+    FastAPI -->|Delegate Actions| Serv
+    FastAPI -->|Dispatch Ingestion| BG
+    BG -->|Execute Chunked Processing| Serv
+    Serv -->|Query / Persist| Repo
+    Repo -->|Async Operations| Postgres
+    Serv -->|Fit / Score Telemetry| Detector
+    Serv -->|Generate Context Summary| AI
+    AI -->|HTTPS Requests| OpenRouter
 ```
 
-The system is a **layered, dependency-inverted** application:
+---
 
-```
-API (routers)  ->  Services (business logic)  ->  Repositories (data access)  ->  ORM / DB
-                       |                              ^
-                       v                              |
-              Anomaly Detector / AI                Models
-```
+## 2. Layer Responsibilities
 
-Each layer depends only on the one below it. Routers are thin; services own
-business rules; repositories encapsulate queries; models define the schema.
+### ⚙️ Core (`app/core`)
+Houses cross-cutting concerns that span the entire application lifecycle:
+- **Configuration (`config.py`)**: Powered by Pydantic Settings, providing a validated single source of truth for environments.
+- **Database Engine (`database.py`)**: Manages the asynchronous SQLAlchemy engine and provides database session dependencies.
+- **Security (`security.py`)**: Implements password hashing via BCrypt and handles asymmetric JWT payload sign/verify tasks.
+- **Structured Logging (`logging.py`)**: Uses structured logging formats (console-optimized in local dev, raw JSON in production).
+- **Exceptions (`exceptions.py`)**: Defines custom typed application exceptions, which are mapped to HTTP responses automatically by global middleware handlers.
 
-## 2. Layers
+### 📦 Database Models (`app/models`)
+Contains standard declarative SQLAlchemy 2.0 classes using strict `Mapped[...]` typing. A key abstraction is the custom `GUID` column type: it maps to PostgreSQL's native `UUID` in production, but transparently fallbacks to `CHAR(32)` on SQLite, enabling fast, isolated testing.
 
-### Core (`app/core`)
-Cross-cutting concerns: `config` (Pydantic Settings, single source of truth),
-`database` (async engine + session dependency), `security` (bcrypt + JWT),
-`logging` (structlog: console in dev, JSON in prod), and `exceptions` (typed
-`AppException` hierarchy mapped to HTTP responses by registered handlers).
+### 📝 Serialization Schemas (`app/schemas`)
+Pydantic v2 schemas that define the system's external-facing REST API contract. These are isolated from database models to ensure internal fields (such as credential hashes) never leak over the wire.
 
-### Models (`app/models`)
-SQLAlchemy 2.0 declarative models with typed `Mapped[...]` columns. A portable
-`GUID` type (native `UUID` on Postgres, `CHAR(32)` elsewhere) lets the same
-models run on SQLite in tests. Mixins provide `id` and `created_at/updated_at`.
+### 💾 Repositories (`app/repositories`)
+Implements the Repository Pattern to isolate database operations from business logic.
+- **`BaseRepository[Model]`**: Provides standard CRUD actions (`get`, `list`, `count`, `create`, `update`, `delete`).
+- **Entity Repositories**: Extend the base class to implement specific operations (e.g., bulk inserts, status summarizations).
 
-### Schemas (`app/schemas`)
-Pydantic v2 request/response models. Separated from ORM models so the API
-contract evolves independently and never leaks internal fields (e.g. password
-hashes).
+> [!IMPORTANT]
+> **Repositories do not manage transactions.** Session commits and rollbacks are owned by the API dependency lifecycle or the background worker orchestrator. This guarantees predictable, unit-of-work transactional boundaries.
 
-### Repositories (`app/repositories`)
-A generic `BaseRepository[Model]` provides `get / list / count / create /
-update / delete`, with model-specific repos adding scoped queries
-(`get_for_owner`, `bulk_insert`, `stats_for_machine`, …). **Repositories never
-commit** — transaction boundaries belong to the `get_db` dependency and the
-background task, giving a single, predictable place for commit/rollback.
+### 🧠 Service Orchestration (`app/services`)
+Owns domain business rules and coordinates data operations. Services compile inputs, call appropriate repositories, and interact with the Machine Learning and GenAI pipelines.
 
-### Services (`app/services`)
-Business logic and orchestration: `AuthService`, `MachineService`,
-`TelemetryProcessor` / `process_csv_task`, `AIService`, and the pluggable
-anomaly detectors. Services compose repositories and the ML/AI components.
+### 🔌 API Routers (`app/api`)
+Thin wrappers built on FastAPI routers. They leverage Dependency Injection (`DbSession`, `CurrentUser`) to check permissions, pass validated schemas down to Services, and translate service outputs into standard JSON payloads.
 
-### API (`app/api`)
-FastAPI routers under `/api/v1`. `dependencies.py` provides `DbSession` and
-`CurrentUser` (JWT-validated). Routers translate HTTP ⇄ services and rely on the
-exception handlers for error mapping.
+---
 
-### Frontend (`src/frontend`)
-A Gradio `Blocks` app. Each browser session holds its own `APIClient`
-(`gr.State`) carrying the bearer token, so the UI is a pure REST consumer with no
-direct DB access — the same boundary any external client would use.
+## 3. Telemetry Ingestion Pipeline
 
-## 3. Key data flow: CSV ingestion
+The ingestion pipeline handles large-scale file streaming, real-time ML scoring, and asynchronous persistence.
 
 ```mermaid
 sequenceDiagram
-    participant U as User (Gradio)
-    participant A as API /telemetry/upload
-    participant T as Task row
-    participant B as BackgroundTask
-    participant D as Detector
-    participant DB as PostgreSQL
-
-    U->>A: POST CSV (multipart)
-    A->>A: authorise machine ownership
-    A->>A: stream file to temp disk
-    A->>T: create Task(PENDING) + commit
-    A-->>U: 202 { task_id }
-    A->>B: schedule process_csv_task
-    B->>T: status = PROCESSING
-    loop each chunk (chunksize rows)
-        B->>B: validate + normalise columns
-        B->>D: fit (first chunk) / predict
-        B->>DB: bulk_insert(scored rows) + commit
-        B->>T: update rows/anomalies counters
+    autonumber
+    
+    actor User as User (Gradio UI)
+    
+    box rgb(30, 41, 59) Backend Core (FastAPI)
+        participant API as API Upload Endpoint
+        participant Task as Database Task Record
+        participant BG as Background Task Worker
     end
-    B->>T: status = COMPLETED
-    B->>DB: derive machine health (OK/WARNING/CRITICAL)
-    U->>A: GET /tasks/{id} (poll)
+
+    box rgb(15, 23, 42) ML & Database
+        participant ML as Anomaly Detector
+        participant DB as PostgreSQL Database
+    end
+
+    User->>API: POST /telemetry/upload/{machine_id} with CSV file
+    activate API
+    API->>API: Verify user ownership of machine
+    API->>API: Stream multipart file to temporary storage
+    
+    API->>DB: Insert Task record (Status: PENDING)
+    activate DB
+    DB-->>API: Return Task ID
+    deactivate DB
+
+    API->>BG: Schedule background process_csv_task()
+    API-->>User: HTTP 202 Accepted (Task ID)
+    deactivate API
+
+    %% Background execution
+    activate BG
+    BG->>DB: Update Task status to PROCESSING
+    
+    Note over BG, ML: Process file in chunks to limit RAM usage (e.g., 50k rows at a time)
+    
+    loop For each CSV Chunk
+        BG->>BG: Parse, clean, and impute missing values
+        
+        alt First Chunk
+            BG->>ML: Fit scaler and Isolation Forest model
+            activate ML
+            ML-->>BG: Model ready
+            deactivate ML
+        end
+        
+        BG->>ML: Predict anomalies and score rows
+        activate ML
+        ML-->>BG: Telemetry with anomaly flags
+        deactivate ML
+        
+        BG->>DB: Bulk insert scored rows (Transactional Batch)
+        BG->>DB: Increment Task rows_processed / anomalies_detected
+    end
+    
+    BG->>DB: Update Task status to COMPLETED (or FAILED if error)
+    BG->>DB: Recalculate Machine status based on overall anomaly ratio
+    deactivate BG
+    
+    loop Periodic Polling
+        User->>API: GET /telemetry/tasks/{task_id}
+        API->>DB: Read Task status
+        DB-->>API: Task Status & Metrics
+        API-->>User: Progress Update (UI Progress Bar)
+    end
 ```
 
-**Why chunked + bulk insert?** Files may contain millions of rows. Streaming with
-`pandas.read_csv(chunksize=...)` bounds memory to one chunk; each chunk is
-inserted with a single `INSERT ... VALUES` (executemany) in its own transaction,
-so a failure midway doesn't lose prior progress and the DB isn't held in one
-giant transaction.
+### 💡 Core Ingestion Decisions
 
-**Why fit the detector on the first chunk?** Isolation Forest is unsupervised; a
-per-upload baseline established from the file's own early data adapts to each
-machine's operating regime without requiring labelled training data. The fitted
-model + scaler is reused for the remaining chunks for consistent scoring.
+- **Bounded RAM Usage**: Millions of telemetry records are parsed incrementally using `pandas.read_csv(chunksize=...)` to prevent memory exhaustion in small container runtimes.
+- **Transactional Batches**: Each chunk is committed in its own database transaction. If processing fails mid-stream, previously persisted chunks remain valid, and the system logs an explicit error message on the associated Task record.
+- **Dynamic Unsupervised Training**: Anomaly detection models are trained on the fly using the initial chunk of the CSV payload, establishing a local baseline of standard operations for that specific ingestion run.
 
-## 4. Anomaly detection design
+---
 
-`AnomalyDetector` is a `Protocol` with `fit`, `predict`, and `is_fitted`.
-Implementations:
+## 4. Anomaly Detection Engine
 
-- **`IsolationForestDetector`** (default, production) — `StandardScaler` +
-  `sklearn.ensemble.IsolationForest`. `decision_function` output is inverted and
-  min-max normalised to a `[0, 1]` anomaly score; `predict == -1` sets the
-  boolean flag. NaN/inf are imputed with column means. Supports `save`/`load`
-  (joblib) for per-machine model persistence.
-- **`ZScoreDetector`** — dependency-light statistical baseline; flags rows whose
-  worst feature |z| exceeds a threshold. Useful as a fallback and in tests.
+The ML engine is decoupled from the ingestion pipeline via the `AnomalyDetector` interface (`Protocol`):
 
-Swapping backends is a one-line change in `get_default_detector()`; the
-telemetry pipeline is agnostic to the implementation.
+```python
+class AnomalyDetector(Protocol):
+    def fit(self, features: np.ndarray) -> None: ...
+    def predict(self, features: np.ndarray) -> DetectionResult: ...
+    @property
+    def is_fitted(self) -> bool: ...
+```
 
-## 5. AI explanation design
+### 🌲 Isolation Forest Detector (`scikit-learn`)
+This is the default production implementation. It scales numerical features via `StandardScaler` and applies an ensemble of isolation trees. The raw `decision_function` values are inverted and min-max scaled into a probability-like `[0, 1]` anomaly score. An anomaly is flagged when the score exceeds the defined model boundary. Built models are serialized using `joblib` and persisted inside the `MODEL_DIR` for later evaluation.
 
-`AIService` builds a compact, structured context window from the most recent
-readings — per-metric mean/min/max, the same statistics restricted to anomalous
-rows, and up to 15 sample anomalies — then asks an LLM (via the OpenAI client
-pointed at OpenRouter) to return strict JSON (`summary`, `explanation`,
-`recommendations`). It tries `gemini-2.5-pro` then falls back to
-`gemini-2.5-flash`. If no API key is configured, or the call fails, a
-deterministic **mock explainer** derives drivers and recommendations from the
-statistics, so the feature degrades gracefully and is testable offline.
+### 📊 Statistical Z-Score Detector
+A secondary, lightweight statistical model. It identifies outlier rows where feature values deviate beyond a configurable standard deviation threshold. It serves as a dependable fallback for simple deployments or offline tests.
 
-## 6. Security
+---
 
-- Passwords hashed with **bcrypt** (`passlib`).
-- **JWT** access tokens (HS256) carry the user id; `get_current_user` validates
-  and loads the active user.
-- **Ownership isolation**: every machine/telemetry/task query is scoped to the
-  authenticated owner; cross-tenant access returns `404` (not `403`) to avoid
-  leaking existence.
+## 5. GenAI Diagnostics & Fallbacks
 
-## 7. Trade-offs & future work
+The `AIService` translates unstructured telemetry streams into actionable insights.
 
-- **In-process background tasks** (FastAPI `BackgroundTasks`) keep the stack
-  simple and dependency-free. For horizontal scaling or ret[r]y semantics,
-  swap in **Celery/RQ/Arq + Redis**; the `process_csv_task` function is already a
-  clean, self-contained unit of work with its own session.
-- **Model storage** is local (joblib in `MODEL_DIR`); move to object storage
-  (S3) for multi-replica deployments.
-- **Detector** currently fits per upload. A scheduled retraining job persisting
-  per-machine baselines would improve cross-upload consistency.
-- **Partitioning**: `sensor_telemetry` is the high-volume table; for very large
-  deployments use native time-based partitioning or TimescaleDB.
+1. **Context Compaction**: The service collects the latest sensor reading trends (mean, min, max) and isolates a small subset of anomaly events (up to 15 records).
+2. **LLM Orchestration**: It constructs a structured system prompt asking for a JSON diagnostic report (including `summary`, `explanation`, and `recommendations`).
+3. **Resilient Failovers**:
+    - **Primary Model**: `google/gemini-2.5-pro` (via OpenRouter).
+    - **Secondary Fallback**: `google/gemini-2.5-flash` (if the primary times out or returns rate limits).
+    - **Local Deterministic Explainer**: If the API key is missing or unreachable, a rules engine dynamically analyzes metrics deviations (e.g. comparing temperatures to statistical margins) to output deterministic instructions.
+
+---
+
+## 6. Architectural Trade-offs & Future Enhancements
+
+### 1. Backend In-Process Worker
+- **Current**: FastAPI's default `BackgroundTasks` processes uploads on the active worker thread.
+- **Trade-off**: Requires no extra dependencies (like Redis/RabbitMQ), keeping the stack minimal. However, heavy CPU processing can slow down API responsiveness.
+- **Future**: Swap the execution handler for a standalone task broker (e.g., Celery, Arq, or Redis Queue) to decouple heavy processing tasks entirely.
+
+### 2. File-Based Model Management
+- **Current**: Scikit-learn models are written directly to local disk volumes (`MODEL_DIR`).
+- **Trade-off**: Extremely fast read/write access. However, horizontal scaling across multiple replicas requires shared volumes.
+- **Future**: Introduce an S3-compatible object storage layer or model registry (like MLflow) to store and load model artifacts.
+
+### 3. High-Volume Telemetry Storage
+- **Current**: Telemetry events are stored in a standard relational PostgreSQL table.
+- **Trade-off**: Simple index schemas (`machine_id`, `timestamp`) cover current query paths. However, tables can grow by gigabytes under constant machine monitoring.
+- **Future**: Implement PostgreSQL table partitioning by month, or transition the telemetry schema into a specialized time-series storage engine (like TimescaleDB).
