@@ -1,0 +1,98 @@
+[project]
+name = "predictive-maintenance"
+version = "1.0.0"
+description = "Production-grade predictive maintenance backend with FastAPI, Isolation Forest anomaly detection, OpenRouter AI explanations, and a Gradio frontend."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Predictive Maintenance Team" }]
+
+dependencies = [
+    # Web / API
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.30.0",
+    "python-multipart>=0.0.9",
+    # Database
+    "sqlalchemy[asyncio]>=2.0.30",
+    "asyncpg>=0.29.0",
+    "alembic>=1.13.0",
+    "greenlet>=3.0.0",
+    # Config & validation
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.3.0",
+    "email-validator>=2.1.0",
+    # Security
+    "passlib[bcrypt]>=1.7.4",
+    "python-jose[cryptography]>=3.3.0",
+    # Data science / ML
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+    "scikit-learn>=1.5.0",
+    "joblib>=1.4.0",
+    # AI
+    "openai>=1.30.0",
+    # Frontend
+    "gradio>=4.36.0",
+    "plotly>=5.22.0",
+    "httpx>=0.27.0",
+    # Logging
+    "structlog>=24.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=5.0.0",
+    "aiosqlite>=0.20.0",
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+    "types-passlib",
+    "types-python-jose",
+]
+
+[build-system]
+requires = ["setuptools>=69.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# ---------------------------------------------------------------------------
+# Ruff
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "C4", "SIM", "ASYNC"]
+ignore = ["B008", "N805"]  # B008: FastAPI Depends in defaults; N805: pydantic validators
+
+[tool.ruff.lint.per-file-ignores]
+"src/tests/*" = ["B", "N", "E501"]
+
+# ---------------------------------------------------------------------------
+# mypy
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["src/tests"]
+pythonpath = ["src"]
+addopts = "-ra -q --strict-markers"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.coverage.run]
+source = ["src/app"]
+omit = ["src/tests/*", "src/app/main.py"]
