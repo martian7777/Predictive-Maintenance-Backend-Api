@@ -1,0 +1,41 @@
+name: Deploy to Hugging Face Spaces
+
+on:
+  push:
+    branches: [main, master]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare Hugging Face Dockerfile
+        run: |
+          cp Dockerfile.hf Dockerfile
+          cp scripts/start-hf.sh start-hf.sh
+          chmod +x start-hf.sh
+
+      - name: Push to Hugging Face Spaces
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: ${{ secrets.HF_USERNAME }}
+          HF_SPACE_NAME: ${{ secrets.HF_SPACE_NAME }}
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          
+          # Add Hugging Face git remote using token for auth
+          git remote add hf https://user:$HF_TOKEN@huggingface.co/spaces/$HF_USERNAME/$HF_SPACE_NAME
+          
+          # Force add the modified Dockerfile and startup script
+          git add -f Dockerfile start-hf.sh
+          
+          # Commit the changes specifically for Hugging Face
+          git commit -m "Deploy to Hugging Face Spaces" || echo "No changes to commit"
+          
+          # Push to HF main branch (HF Spaces requires 'main' branch name)
+          git push -f hf HEAD:main
