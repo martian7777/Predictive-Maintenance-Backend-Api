@@ -72,6 +72,10 @@ ignore = ["B008", "N805"]  # B008: FastAPI Depends in defaults; N805: pydantic v
 
 [tool.ruff.lint.per-file-ignores]
 "src/tests/*" = ["B", "N", "E501"]
+# Base exception is deliberately named *Exception*; UI module favours readable
+# inline strings over strict line length.
+"**/core/exceptions.py" = ["N818"]
+"**/frontend/*.py" = ["E501", "SIM117"]
 
 # ---------------------------------------------------------------------------
 # mypy

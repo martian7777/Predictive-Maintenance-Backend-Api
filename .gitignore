@@ -31,6 +31,7 @@ models/*.pkl
 uploads/
 *.csv
 !src/tests/**/*.csv
+!examples/*.csv
 
 # IDE / OS
 .idea/

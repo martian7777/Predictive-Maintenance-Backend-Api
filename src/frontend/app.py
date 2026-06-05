@@ -97,7 +97,8 @@ def create_machine(client: APIClient, name, type_, location):
     if not client or not client.is_authenticated:
         return client, _status_md("❌ Please log in first."), gr.update(), gr.update(), ""
     if not name or not type_:
-        return client, _status_md("❌ Name and type are required."), gr.update(), gr.update(), _render_dashboard(client)
+        msg = _status_md("❌ Name and type are required.")
+        return client, msg, gr.update(), gr.update(), _render_dashboard(client)
     try:
         client.create_machine(name, type_, location or None)
         msg = f"✅ Machine **{name}** created."
@@ -266,7 +267,7 @@ def build_ui() -> gr.Blocks:
 
         gr.Markdown("# 🛠️ Predictive Maintenance Platform")
 
-        with gr.Tabs():
+        with gr.Tabs():  # noqa: SIM117 - Gradio layout contexts nest idiomatically
             # ---- Tab 1: Dashboard & Auth ----
             with gr.Tab("Dashboard & Auth"):
                 with gr.Row():
@@ -287,7 +288,9 @@ def build_ui() -> gr.Blocks:
                         gr.Markdown("### Register a New Machine")
                         with gr.Row():
                             m_name = gr.Textbox(label="Name", scale=2)
-                            m_type = gr.Textbox(label="Type", placeholder="pump / motor / turbine", scale=2)
+                            m_type = gr.Textbox(
+                                label="Type", placeholder="pump / motor / turbine", scale=2
+                            )
                             m_loc = gr.Textbox(label="Location", scale=2)
                         create_btn = gr.Button("➕ Create Machine", variant="primary")
 
@@ -326,8 +329,8 @@ def build_ui() -> gr.Blocks:
                 ai_btn = gr.Button("🧠 Generate Report", variant="primary")
                 ai_output = gr.Markdown()
 
-        # The set of machine dropdowns kept in sync after auth/create/refresh.
-        dropdowns = [upload_machine, analytics_machine, ai_machine]
+        # The upload/analytics/ai machine dropdowns are kept in sync after every
+        # auth / create / refresh action via the .then(...) callbacks below.
 
         # --- wiring: auth ---
         login_btn.click(
