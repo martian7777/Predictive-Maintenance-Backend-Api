@@ -387,7 +387,7 @@ def _sync_third_dropdown(client: APIClient):
 def main() -> None:
     host = os.getenv("FRONTEND_HOST", "0.0.0.0")
     port = int(os.getenv("FRONTEND_PORT", "7860"))
-    build_ui().queue().launch(server_name=host, server_port=port, show_api=False)
+    build_ui().queue().launch(server_name=host, server_port=port)
 
 
 if __name__ == "__main__":

@@ -30,14 +30,14 @@ def _spawn(args: list[str], name: str) -> subprocess.Popen:
 
 
 def run_migrate() -> int:
-    return subprocess.call(["alembic", "upgrade", "head"], env=ENV, cwd=ROOT)
+    return subprocess.call([sys.executable, "-m", "alembic", "upgrade", "head"], env=ENV, cwd=ROOT)
 
 
 def run_api() -> subprocess.Popen:
     host = os.getenv("API_HOST", "0.0.0.0")
     port = os.getenv("API_PORT", "8000")
     return _spawn(
-        ["uvicorn", "app.main:app", "--host", host, "--port", port, "--reload"],
+        [sys.executable, "-m", "uvicorn", "app.main:app", "--host", host, "--port", port, "--reload"],
         "api",
     )
 
