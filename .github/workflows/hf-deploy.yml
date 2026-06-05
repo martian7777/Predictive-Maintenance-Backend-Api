@@ -28,8 +28,14 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
           
-          # Add Hugging Face git remote using token for auth
-          git remote add hf https://user:$HF_TOKEN@huggingface.co/spaces/$HF_USERNAME/$HF_SPACE_NAME
+          # Unset the GitHub Actions extraheader to prevent authentication conflicts
+          git config --local --unset-all http.https://github.com/.extraheader || true
+          
+          # Authenticate with Hugging Face using the token in an Authorization header
+          git config --global http.https://huggingface.co/.extraHeader "AUTHORIZATION: Bearer $HF_TOKEN"
+          
+          # Add Hugging Face git remote (clean URL, no credentials embedded)
+          git remote add hf https://huggingface.co/spaces/$HF_USERNAME/$HF_SPACE_NAME
           
           # Force add the modified Dockerfile and startup script
           git add -f Dockerfile start-hf.sh
