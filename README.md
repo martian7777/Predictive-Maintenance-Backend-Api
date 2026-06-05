@@ -118,6 +118,15 @@ pytest --cov=app --cov-report=term-missing
 4. **Interactive Analytics:** View temperature, vibration, and speed series with anomalies flagged as red crosses in **Analytics & Visuals**.
 5. **Request AI Diagnosis:** Generate an AI-powered root-cause summary and actionable recommendations under **AI Assistant**.
 
+## Images
+
+<img width="1906" height="743" alt="image" src="https://github.com/user-attachments/assets/8c2813a8-3acf-4796-8bb5-8b08c78223e4" />
+<img width="1920" height="781" alt="image" src="https://github.com/user-attachments/assets/55925ea5-5cb9-49ca-a73b-d07b70515911" />
+<img width="1897" height="878" alt="image" src="https://github.com/user-attachments/assets/8744fced-fff5-49f6-b07f-5805923ddf79" />
+<img width="1872" height="493" alt="image" src="https://github.com/user-attachments/assets/a873f62a-ad9e-411a-8f31-1f8e2554ee43" />
+<img width="1885" height="878" alt="image" src="https://github.com/user-attachments/assets/e59d3799-eace-44ca-b43f-b48815c5f7d2" />
+
+
 ### 📊 Expected CSV Format
 
 The ingestion engine parses standard CSVs, auto-resolving common column aliases (e.g. `temp` for `temperature`, `rpm` for `rotational_speed`).
