@@ -12,7 +12,6 @@ env/
 # Env & secrets
 .env
 *.local
-!Dockerfile.local
 
 # Test / coverage
 .pytest_cache/

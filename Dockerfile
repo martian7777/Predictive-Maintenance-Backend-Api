@@ -1,49 +1,44 @@
-FROM python:3.11-slim
+# syntax=docker/dockerfile:1.7
+# ---------------------------------------------------------------------------
+# Multi-stage image shared by the FastAPI backend and the Gradio frontend.
+# ---------------------------------------------------------------------------
+
+# ----- base: common runtime with dependencies -----------------------------
+FROM python:3.11-slim AS base
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    HOME=/home/user \
-    PATH=/home/user/.local/bin:$PATH
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-WORKDIR /home/user/app
+WORKDIR /app
 
-# System dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    curl \
+# System deps required by asyncpg / scikit-learn wheels.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Create user 1000 for Hugging Face compatibility
-RUN useradd -m -u 1000 user
-RUN chown -R user:user /home/user
+COPY pyproject.toml README.md ./
+COPY src ./src
 
-# Switch to user 1000
-USER user
+# Install the project (runtime deps only).
+RUN pip install --upgrade pip && pip install .
 
-# Copy requirements/files
-COPY --chown=user:user pyproject.toml README.md ./
-COPY --chown=user:user src ./src
-COPY --chown=user:user alembic.ini ./
-COPY --chown=user:user alembic ./alembic
+# ----- dev/test: adds dev dependencies and test tooling --------------------
+FROM base AS dev
+RUN pip install ".[dev]"
+COPY alembic.ini ./
+COPY alembic ./alembic
+CMD ["pytest", "-v"]
 
-# Install the project and dependencies
-RUN pip install --user --upgrade pip && pip install --user .
+# ----- api: FastAPI server -------------------------------------------------
+FROM base AS api
+COPY alembic.ini ./
+COPY alembic ./alembic
+EXPOSE 8000
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
-# Copy and setup startup script
-COPY --chown=user:user scripts/start-hf.sh ./start-hf.sh
-RUN chmod +x ./start-hf.sh
-
-# Expose Gradio port
+# ----- frontend: Gradio app ------------------------------------------------
+FROM base AS frontend
 EXPOSE 7860
-
-# Default environment variables for the self-contained deployment
-ENV ENVIRONMENT=production \
-    DATABASE_URL=sqlite+aiosqlite:////home/user/app/predictive_maintenance.db \
-    API_BASE_URL=http://localhost:8000 \
-    FRONTEND_PORT=7860 \
-    FRONTEND_HOST=0.0.0.0 \
-    JWT_SECRET_KEY=hf-space-random-secret-key-12345
-
-CMD ["./start-hf.sh"]
+CMD ["python", "-m", "frontend.app"]
