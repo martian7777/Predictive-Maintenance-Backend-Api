@@ -9,53 +9,45 @@ This document describes the architectural layout, core design patterns, componen
 The system follows a strict **Layered and Dependency-Inverted** architecture. Each layer depends only on the interface and schemas defined by the layers below it, preventing circular dependencies and ensuring high testability.
 
 ```mermaid
-graph TB
-    %% Custom Styles %%
-    classDef client fill:#334155,stroke:#94a3b8,stroke-width:2px,color:#f8fafc;
-    classDef frontend fill:#1e293b,stroke:#f59e0b,stroke-width:2px,color:#f8fafc;
-    classDef backend fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
-    classDef db fill:#1e293b,stroke:#10b981,stroke-width:2px,color:#f8fafc;
-    classDef external fill:#1e293b,stroke:#a855f7,stroke-width:2px,color:#f8fafc;
-    classDef process fill:#1e293b,stroke:#f43f5e,stroke-width:2px,color:#f8fafc;
-
-    subgraph UI [Presentation Layer]
-        Client[User Browser] :::client
-        Gradio[Gradio Web App] :::frontend
+graph TD
+    subgraph Presentation ["Presentation Layer"]
+        Client["User Browser"]
+        Gradio["Gradio Web App"]
     end
 
-    subgraph API [API Gateway & Routing Layer]
-        FastAPI[FastAPI Routers] :::backend
-        Deps[Dependency Injection<br/>auth, db session] :::backend
+    subgraph API ["API & Routing Layer"]
+        FastAPI["FastAPI Routers"]
+        Deps["Dependency Injection (Auth & DB)"]
     end
 
-    subgraph Business [Business Logic & Orchestration]
-        Serv[Services Layer<br/>Auth, Machine, Telemetry] :::process
-        BG[Asynchronous Background Tasks] :::process
+    subgraph Business ["Business Logic & Orchestration"]
+        Serv["Services Layer"]
+        BG["Background Tasks"]
     end
 
-    subgraph Engine [Analytics, ML & AI Engine]
-        Detector[Anomaly Detector Protocol<br/>Isolation Forest / Z-Score] :::process
-        AI[AI Explanations Service] :::process
-        OpenRouter[OpenRouter / Gemini] :::external
+    subgraph Analytics ["Analytics, ML & AI Engine"]
+        Detector["Anomaly Detector Protocol"]
+        AI["AI Explanations Service"]
+        OpenRouter["OpenRouter (Gemini)"]
     end
 
-    subgraph Data [Data & Persistence]
-        Repo[Repository Layer<br/>Async Queries] :::db
-        Postgres[(PostgreSQL Database)] :::db
+    subgraph Data ["Data & Persistence"]
+        Repo["Repository Layer"]
+        Postgres[("PostgreSQL Database")]
     end
 
     %% Connections %%
-    Client -->|User Interaction| Gradio
-    Gradio -->|HTTP REST + JWT Bearer| FastAPI
-    FastAPI -->|Extracts Credentials| Deps
-    FastAPI -->|Delegate Actions| Serv
-    FastAPI -->|Dispatch Ingestion| BG
-    BG -->|Execute Chunked Processing| Serv
-    Serv -->|Query / Persist| Repo
-    Repo -->|Async Operations| Postgres
-    Serv -->|Fit / Score Telemetry| Detector
-    Serv -->|Generate Context Summary| AI
-    AI -->|HTTPS Requests| OpenRouter
+    Client --> Gradio
+    Gradio --> FastAPI
+    FastAPI --> Deps
+    FastAPI --> Serv
+    FastAPI --> BG
+    BG --> Serv
+    Serv --> Repo
+    Repo --> Postgres
+    Serv --> Detector
+    Serv --> AI
+    AI --> OpenRouter
 ```
 
 ---
@@ -102,13 +94,13 @@ sequenceDiagram
     
     actor User as User (Gradio UI)
     
-    box rgb(30, 41, 59) Backend Core (FastAPI)
+    box #1e293b Backend Core (FastAPI)
         participant API as API Upload Endpoint
         participant Task as Database Task Record
         participant BG as Background Task Worker
     end
 
-    box rgb(15, 23, 42) ML & Database
+    box #0f172a ML & Database
         participant ML as Anomaly Detector
         participant DB as PostgreSQL Database
     end

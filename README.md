@@ -18,28 +18,21 @@ A production-grade, end-to-end predictive maintenance system featuring a high-pe
 ---
 
 ## 🗺️ System Topology & Data Flow
-
 ```mermaid
 graph TD
-    %% Custom Styles %%
-    classDef client fill:#334155,stroke:#94a3b8,stroke-width:2px,color:#f8fafc;
-    classDef frontend fill:#1e293b,stroke:#f59e0b,stroke-width:2px,color:#f8fafc;
-    classDef backend fill:#1e293b,stroke:#38bdf8,stroke-width:2px,color:#f8fafc;
-    classDef db fill:#1e293b,stroke:#10b981,stroke-width:2px,color:#f8fafc;
-    classDef external fill:#1e293b,stroke:#a855f7,stroke-width:2px,color:#f8fafc;
+    User["User Browser"]
+    Gradio["Gradio Web UI (Port 7860)"]
+    FastAPI["FastAPI Backend (Port 8000)"]
+    Postgres[("PostgreSQL Database")]
+    OpenRouter["OpenRouter (Gemini API)"]
+    LocalModel["Local Isolation Forest"]
 
-    User([User Browser]) :::client
-    Gradio[Gradio Web UI<br/>(Port 7860)] :::frontend
-    FastAPI[FastAPI Backend API<br/>(Port 8000)] :::backend
-    Postgres[(PostgreSQL DB<br/>Sensor & Machine Registry)] :::db
-    OpenRouter[OpenRouter Gemini API<br/>(AI Explanations)] :::external
-    LocalModel[Local Isolation Forest<br/>(Scikit-Learn ML Model)] :::backend
+    User --> Gradio
+    Gradio --> FastAPI
+    FastAPI --> Postgres
+    FastAPI --> LocalModel
+    FastAPI --> OpenRouter
 
-    User -->|HTTPS| Gradio
-    Gradio -->|REST API + JWT| FastAPI
-    FastAPI -->|Async SQL Session| Postgres
-    FastAPI -->|Extract Anomalies| LocalModel
-    FastAPI -->|AI Maintenance Report| OpenRouter
 ```
 
 ---
