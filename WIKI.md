@@ -168,54 +168,54 @@ The database relies on 4 core tables to manage tenants, physical assets, telemet
 
 ```mermaid
 erDiagram
-    USERS ||--o{ MACHINES : "manages"
-    MACHINES ||--o{ SENSOR_TELEMETRY : "records"
-    MACHINES ||--o{ INGESTION_TASKS : "runs"
+    USERS ||--o{ MACHINES : manages
+    MACHINES ||--o{ SENSOR_TELEMETRY : records
+    MACHINES ||--o{ INGESTION_TASKS : runs
 
     USERS {
-        uuid id PK "Primary key"
-        varchar email UK "Unique login identifier"
-        varchar hashed_password "Bcrypt encrypted hash"
-        varchar full_name "User full name"
-        boolean is_active "Status flag"
-        boolean is_superuser "Admin privilege flag"
-        timestamp created_at "Record creation time"
-        timestamp updated_at "Record modification time"
+        uuid id PK
+        varchar email UK
+        varchar hashed_password
+        varchar full_name
+        boolean is_active
+        boolean is_superuser
+        timestamp created_at
+        timestamp updated_at
     }
 
     MACHINES {
-        uuid id PK "Primary key"
-        uuid owner_id FK "References USERS.id"
-        varchar name "Machine identity label"
-        varchar type "Machine classification (e.g. pump)"
-        varchar location "Installation location"
-        varchar status "OK | WARNING | CRITICAL"
-        timestamp created_at "Record creation time"
-        timestamp updated_at "Record modification time"
+        uuid id PK
+        uuid owner_id FK
+        varchar name
+        varchar type
+        varchar location
+        varchar status
+        timestamp created_at
+        timestamp updated_at
     }
 
     SENSOR_TELEMETRY {
-        uuid id PK "Primary key"
-        uuid machine_id FK "References MACHINES.id"
-        timestamp timestamp INDEX "Measurement time"
-        float temperature "Sensor metric"
-        float vibration "Sensor metric"
-        float pressure "Sensor metric"
-        float rotational_speed "Sensor metric"
-        float anomaly_score "Computed score [0, 1]"
-        boolean is_anomaly INDEX "Scored outlier flag"
+        uuid id PK
+        uuid machine_id FK
+        timestamp measurement_time
+        float temperature
+        float vibration
+        float pressure
+        float rotational_speed
+        float anomaly_score
+        boolean is_anomaly
     }
 
     INGESTION_TASKS {
-        uuid id PK "Primary key"
-        uuid machine_id FK "References MACHINES.id"
-        varchar status "PENDING | PROCESSING | COMPLETED | FAILED"
-        varchar file_name "Uploaded CSV file name"
-        integer rows_processed "Processed telemetry rows count"
-        integer anomalies_detected "Outlier rows count"
-        text error_message "Failure details (if any)"
-        timestamp created_at "Record creation time"
-        timestamp updated_at "Record modification time"
+        uuid id PK
+        uuid machine_id FK
+        varchar status
+        varchar file_name
+        integer rows_processed
+        integer anomalies_detected
+        text error_message
+        timestamp created_at
+        timestamp updated_at
     }
 ```
 
