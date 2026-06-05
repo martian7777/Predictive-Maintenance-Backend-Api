@@ -90,9 +90,7 @@ def _prepare_chunk(df: pd.DataFrame) -> pd.DataFrame:
             end=pd.Timestamp.utcnow(), periods=len(df), freq="s"
         )
     else:
-        df["timestamp"] = df["timestamp"].fillna(method="ffill").fillna(
-            pd.Timestamp.utcnow()
-        )
+        df["timestamp"] = df["timestamp"].ffill().fillna(pd.Timestamp.now(tz="UTC"))
 
     # Ensure all feature columns exist and are numeric.
     for col in FEATURE_COLUMNS:
@@ -126,22 +124,28 @@ class TelemetryProcessor:
         detector = self._ensure_detector(features)
         result = detector.predict(features)
 
-        rows: list[dict[str, Any]] = []
-        for i, (_, row) in enumerate(df.iterrows()):
-            rows.append(
-                {
-                    "id": uuid.uuid4(),
-                    "machine_id": machine_id,
-                    "timestamp": row["timestamp"].to_pydatetime(),
-                    "temperature": _nan_to_none(row["temperature"]),
-                    "vibration": _nan_to_none(row["vibration"]),
-                    "pressure": _nan_to_none(row["pressure"]),
-                    "rotational_speed": _nan_to_none(row["rotational_speed"]),
-                    "anomaly_score": float(result.scores[i]),
-                    "is_anomaly": bool(result.flags[i]),
-                }
-            )
-        return rows, int(result.flags.sum())
+        # Vectorised extraction: pull each column to a Python list once rather
+        # than iterating rows (orders of magnitude faster on large chunks).
+        timestamps = [ts.to_pydatetime() for ts in df["timestamp"]]
+        cols = {col: df[col].to_numpy(dtype=np.float64) for col in FEATURE_COLUMNS}
+        scores = result.scores
+        flags = result.flags
+
+        rows: list[dict[str, Any]] = [
+            {
+                "id": uuid.uuid4(),
+                "machine_id": machine_id,
+                "timestamp": timestamps[i],
+                "temperature": _nan_to_none(cols["temperature"][i]),
+                "vibration": _nan_to_none(cols["vibration"][i]),
+                "pressure": _nan_to_none(cols["pressure"][i]),
+                "rotational_speed": _nan_to_none(cols["rotational_speed"][i]),
+                "anomaly_score": float(scores[i]),
+                "is_anomaly": bool(flags[i]),
+            }
+            for i in range(len(df))
+        ]
+        return rows, int(flags.sum())
 
 
 def _nan_to_none(value: Any) -> float | None:

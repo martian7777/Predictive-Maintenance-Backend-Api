@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Ruff (lint)
+        run: ruff check src
+
+      - name: Ruff (format check)
+        run: ruff format --check src
+
+      - name: mypy (type check)
+        run: mypy src/app || true   # advisory; do not block on type errors yet
+
+      - name: Pytest with coverage
+        env:
+          ENVIRONMENT: testing
+          JWT_SECRET_KEY: ci-test-secret
+          DATABASE_URL: sqlite+aiosqlite:///:memory:
+          OPENROUTER_API_KEY: ""
+        run: |
+          pytest --cov=app --cov-report=term-missing --cov-report=xml
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+
+  migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pmuser
+          POSTGRES_PASSWORD: pmpassword
+          POSTGRES_DB: predictive_maintenance
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pmuser"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - name: Apply migrations then verify head
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_USER: pmuser
+          POSTGRES_PASSWORD: pmpassword
+          POSTGRES_DB: predictive_maintenance
+          JWT_SECRET_KEY: ci-test-secret
+        run: |
+          alembic upgrade head
+          alembic current

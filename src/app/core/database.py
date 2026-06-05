@@ -12,14 +12,17 @@ from sqlalchemy.ext.asyncio import (
 
 from app.core.config import settings
 
-engine: AsyncEngine = create_async_engine(
-    settings.sqlalchemy_database_uri,
-    echo=settings.debug and settings.environment == "development",
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
-    future=True,
-)
+_db_uri = settings.sqlalchemy_database_uri
+_engine_kwargs: dict = {
+    "echo": settings.debug and settings.environment == "development",
+    "future": True,
+}
+# QueuePool sizing only applies to server-backed dialects (e.g. PostgreSQL);
+# SQLite (used in tests) rejects these arguments.
+if not _db_uri.startswith("sqlite"):
+    _engine_kwargs.update(pool_pre_ping=True, pool_size=10, max_overflow=20)
+
+engine: AsyncEngine = create_async_engine(_db_uri, **_engine_kwargs)
 
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
