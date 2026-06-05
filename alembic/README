@@ -1,0 +1,14 @@
+Async Alembic migration environment.
+
+The database URL and target metadata come from app.core.config.settings and
+app.models.Base — alembic.ini's sqlalchemy.url is intentionally blank.
+
+Common commands (run from the project root):
+
+  alembic revision --autogenerate -m "describe change"
+  alembic upgrade head
+  alembic downgrade -1
+  alembic current
+  alembic history
+
+In Docker the api service runs `alembic upgrade head` on startup.
