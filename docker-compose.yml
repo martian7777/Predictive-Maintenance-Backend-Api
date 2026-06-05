@@ -19,6 +19,7 @@ services:
   api:
     build:
       context: .
+      dockerfile: Dockerfile.local
       target: api
     container_name: pm_api
     env_file: .env
@@ -41,6 +42,7 @@ services:
   frontend:
     build:
       context: .
+      dockerfile: Dockerfile.local
       target: frontend
     container_name: pm_frontend
     env_file: .env

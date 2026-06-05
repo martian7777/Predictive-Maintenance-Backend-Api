@@ -1,3 +1,12 @@
+---
+title: Predictive Maintenance Platform
+emoji: 🛠️
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+---
+
 # 🛠️ Predictive Maintenance Platform
 
 A production-grade, end-to-end predictive maintenance system featuring a high-performance **FastAPI** backend, unsupervised **Isolation Forest** anomaly detection, streamlined chunked ingestion of multi-million-row sensor data, **OpenRouter (Gemini)** powered AI maintenance reports, and an interactive **Gradio** web dashboard.
